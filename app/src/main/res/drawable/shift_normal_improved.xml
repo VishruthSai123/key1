@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#33FFFFFF">
+    <item>
+        <layer-list>
+            <!-- Subtle shadow for depth -->
+            <item android:top="1dp" android:left="1dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#15000000" />
+                    <corners android:radius="12dp" />
+                </shape>
+            </item>
+            <!-- Main button body -->
+            <item android:bottom="1dp" android:right="1dp">
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:startColor="#6B7280"
+                        android:endColor="#4B5563"
+                        android:angle="270" />
+                    <corners android:radius="12dp" />
+                    <stroke
+                        android:width="0.5dp"
+                        android:color="#9CA3AF" />
+                </shape>
+            </item>
+            <!-- Inner highlight for polish -->
+            <item android:top="2dp" android:left="2dp" android:bottom="8dp" android:right="2dp">
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:startColor="#20FFFFFF"
+                        android:endColor="#00FFFFFF"
+                        android:angle="270" />
+                    <corners android:radius="10dp" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+</ripple> 

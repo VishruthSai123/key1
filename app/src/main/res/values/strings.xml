@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">NeoBoard</string>
+    <string name="ime_name">NeoBoard AI Keyboard</string>
+    <string name="ime_description">AI-powered keyboard with smart writing assistance by Neonix AI</string>
+</resources>

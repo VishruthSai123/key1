@@ -1,0 +1,1079 @@
+package com.vishruth.key1.keyboard
+
+import android.inputmethodservice.InputMethodService
+import android.view.KeyEvent
+import android.view.View
+import android.widget.Button
+import android.util.Log
+import com.vishruth.key1.R
+import com.vishruth.key1.data.AIAction
+import com.vishruth.key1.repository.AIRepository
+import kotlinx.coroutines.*
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.ImageButton
+import android.widget.ProgressBar
+import android.widget.Toast
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.ClipData
+import kotlin.math.abs
+
+/**
+ * Simple XML-based InputMethodService for KeyWise AI Keyboard
+ * This version uses traditional XML layouts for better stability
+ */
+class SimpleKeyWiseInputMethodService : InputMethodService() {
+    
+    private lateinit var repository: AIRepository
+    private val keyboardScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    
+    // Keyboard state management
+    private var currentMode = KeyboardMode.LETTERS
+    private var isShiftEnabled = false
+    private var isShiftLocked = false
+    private var isAISectionVisible = true // AI section visibility state
+    private var isAIProcessing = false // AI processing state
+    private var currentEmojiCategory = EmojiCategory.SMILEYS // Current emoji category
+    private var isSelectionBarVisible = false // Selection operations bar visibility
+    
+    // Undo/Redo state management
+    private var textHistory = mutableListOf<String>()
+    private var currentHistoryIndex = -1
+    private val maxHistorySize = 50
+    
+    // Long press handling
+    private val longPressHandler = Handler(Looper.getMainLooper())
+    private var longPressRunnable: Runnable? = null
+    private var isLongPressing = false
+    private val LONG_PRESS_DELAY = 500L
+    private val REPEAT_DELAY = 100L
+    
+    // Keyboard layouts
+    private lateinit var lettersLayout: LinearLayout
+    private lateinit var numbersLayout: LinearLayout 
+    private lateinit var symbolsLayout: LinearLayout
+    private lateinit var emojisLayout: LinearLayout
+    private lateinit var aiActionsContainer: LinearLayout
+    private lateinit var selectionOperationsBar: LinearLayout
+
+    // Store the keyboard view
+    private var keyboardView: View? = null
+
+    enum class KeyboardMode {
+        LETTERS, NUMBERS, SYMBOLS, EMOJIS
+    }
+
+    enum class EmojiCategory {
+        SMILEYS, PEOPLE, NATURE, OBJECTS, SYMBOLS
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        Log.d("SimpleKeyWise", "InputMethodService created")
+        repository = AIRepository(this)
+    }
+    
+    override fun onCreateInputView(): View {
+        Log.d("SimpleKeyWise", "Creating input view")
+        keyboardView = layoutInflater.inflate(R.layout.keyboard_layout, null)
+        
+        // Initialize layout references
+        lettersLayout = keyboardView!!.findViewById(R.id.letters_layout)
+        numbersLayout = keyboardView!!.findViewById(R.id.numbers_layout)
+        symbolsLayout = keyboardView!!.findViewById(R.id.symbols_layout)
+        emojisLayout = keyboardView!!.findViewById(R.id.emojis_layout)
+        aiActionsContainer = keyboardView!!.findViewById(R.id.ai_actions_container)
+        selectionOperationsBar = keyboardView!!.findViewById(R.id.selection_operations_bar)
+        
+        setupAIButtons(keyboardView!!)
+        setupAIToggle(keyboardView!!)
+        setupKeyButtons(keyboardView!!)
+        setupModeButtons(keyboardView!!)
+        setupBackspaceButtons(keyboardView!!)
+        setupEmojiButtons(keyboardView!!)
+        setupSelectionOperations(keyboardView!!)
+        setupUndoRedo(keyboardView!!)
+        
+        // Start with letters layout
+        switchToMode(KeyboardMode.LETTERS)
+        
+        return keyboardView!!
+    }
+    
+    private fun setupAIButtons(view: View) {
+        try {
+            view.findViewById<Button>(R.id.btn_rewrite)?.setOnClickListener {
+                handleAIAction(AIAction.REWRITE)
+            }
+            
+            view.findViewById<Button>(R.id.btn_summarize)?.setOnClickListener {
+                handleAIAction(AIAction.SUMMARIZE)
+            }
+            
+            view.findViewById<Button>(R.id.btn_explain)?.setOnClickListener {
+                handleAIAction(AIAction.EXPLAIN)
+            }
+            
+            view.findViewById<Button>(R.id.btn_listify)?.setOnClickListener {
+                handleAIAction(AIAction.LISTIFY)
+            }
+            
+            view.findViewById<Button>(R.id.btn_emojify)?.setOnClickListener {
+                handleAIAction(AIAction.EMOJIFY)
+            }
+            
+            view.findViewById<Button>(R.id.btn_make_formal)?.setOnClickListener {
+                handleAIAction(AIAction.MAKE_FORMAL)
+            }
+            
+            view.findViewById<Button>(R.id.btn_tweetify)?.setOnClickListener {
+                handleAIAction(AIAction.TWEETIFY)
+            }
+            
+            view.findViewById<Button>(R.id.btn_promptify)?.setOnClickListener {
+                handleAIAction(AIAction.PROMPTIFY)
+            }
+            
+            view.findViewById<Button>(R.id.btn_translate)?.setOnClickListener {
+                handleAIAction(AIAction.TRANSLATE)
+            }
+            
+            view.findViewById<Button>(R.id.btn_creative)?.setOnClickListener {
+                handleAIAction(AIAction.CREATIVE_WRITE)
+            }
+            
+            view.findViewById<Button>(R.id.btn_answer)?.setOnClickListener {
+                handleAIAction(AIAction.ANSWER)
+            }
+            
+        } catch (e: Exception) {
+            Log.e("SimpleKeyWise", "Error setting up AI buttons: ${e.message}")
+        }
+    }
+    
+    private fun setupAIToggle(view: View) {
+        val toggleButton = view.findViewById<ImageButton>(R.id.btn_ai_toggle)
+        val statusText = view.findViewById<TextView>(R.id.txt_ai_status)
+        
+        toggleButton?.setOnClickListener {
+            toggleAISection()
+        }
+        
+        // Set initial state
+        updateAIToggleState(toggleButton, statusText)
+    }
+    
+    private fun toggleAISection() {
+        isAISectionVisible = !isAISectionVisible
+        
+        // Cancel any ongoing animations to prevent flickering
+        aiActionsContainer.animate().cancel()
+        
+        // Animate the visibility change with improved logic
+        if (isAISectionVisible) {
+            // Show AI section
+            aiActionsContainer.visibility = View.VISIBLE
+            aiActionsContainer.alpha = 0f
+            aiActionsContainer.animate()
+                .alpha(1f)
+                .setDuration(150)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+        } else {
+            // Hide AI section
+            aiActionsContainer.animate()
+                .alpha(0f)
+                .setDuration(150)
+                .setInterpolator(android.view.animation.AccelerateInterpolator())
+                .withEndAction {
+                    if (!isAISectionVisible) { // Double check state
+                        aiActionsContainer.visibility = View.GONE
+                    }
+                }
+                .start()
+        }
+        
+        // Update toggle button state
+        val toggleButton = keyboardView?.findViewById<ImageButton>(R.id.btn_ai_toggle)
+        val statusText = keyboardView?.findViewById<TextView>(R.id.txt_ai_status)
+        updateAIToggleState(toggleButton, statusText)
+        
+        Log.d("SimpleKeyWise", "AI section toggled: $isAISectionVisible")
+    }
+    
+    private fun updateAIToggleState(toggleButton: ImageButton?, statusText: TextView?) {
+        toggleButton?.let { button ->
+            if (isAISectionVisible) {
+                button.setImageResource(R.drawable.ic_ai_robot)
+            } else {
+                button.setImageResource(R.drawable.ic_expand_up)
+            }
+        }
+        
+        statusText?.let { text ->
+            if (isAISectionVisible) {
+                text.text = "AI Actions"
+            } else {
+                text.text = "AI Actions (Hidden)"
+            }
+        }
+    }
+    
+    private fun setupKeyButtons(view: View) {
+        // Letter keys
+        setupLetterKey(view, R.id.key_q, "q")
+        setupLetterKey(view, R.id.key_w, "w")
+        setupLetterKey(view, R.id.key_e, "e")
+        setupLetterKey(view, R.id.key_r, "r")
+        setupLetterKey(view, R.id.key_t, "t")
+        setupLetterKey(view, R.id.key_y, "y")
+        setupLetterKey(view, R.id.key_u, "u")
+        setupLetterKey(view, R.id.key_i, "i")
+        setupLetterKey(view, R.id.key_o, "o")
+        setupLetterKey(view, R.id.key_p, "p")
+        
+        setupLetterKey(view, R.id.key_a, "a")
+        setupLetterKey(view, R.id.key_s, "s")
+        setupLetterKey(view, R.id.key_d, "d")
+        setupLetterKey(view, R.id.key_f, "f")
+        setupLetterKey(view, R.id.key_g, "g")
+        setupLetterKey(view, R.id.key_h, "h")
+        setupLetterKey(view, R.id.key_j, "j")
+        setupLetterKey(view, R.id.key_k, "k")
+        setupLetterKey(view, R.id.key_l, "l")
+        
+        setupLetterKey(view, R.id.key_z, "z")
+        setupLetterKey(view, R.id.key_x, "x")
+        setupLetterKey(view, R.id.key_c, "c")
+        setupLetterKey(view, R.id.key_v, "v")
+        setupLetterKey(view, R.id.key_b, "b")
+        setupLetterKey(view, R.id.key_n, "n")
+        setupLetterKey(view, R.id.key_m, "m")
+        
+        // Number keys
+        setupSimpleKey(view, R.id.key_1, "1")
+        setupSimpleKey(view, R.id.key_2, "2")
+        setupSimpleKey(view, R.id.key_3, "3")
+        setupSimpleKey(view, R.id.key_4, "4")
+        setupSimpleKey(view, R.id.key_5, "5")
+        setupSimpleKey(view, R.id.key_6, "6")
+        setupSimpleKey(view, R.id.key_7, "7")
+        setupSimpleKey(view, R.id.key_8, "8")
+        setupSimpleKey(view, R.id.key_9, "9")
+        setupSimpleKey(view, R.id.key_0, "0")
+        
+        // Punctuation and symbols
+        setupSimpleKey(view, R.id.key_comma, ",")
+        setupSimpleKey(view, R.id.key_period, ".")
+        setupSimpleKey(view, R.id.key_comma_num, ",")
+        setupSimpleKey(view, R.id.key_period_num, ".")
+        setupSimpleKey(view, R.id.key_comma_sym, ",")
+        setupSimpleKey(view, R.id.key_period_sym, ".")
+        
+        setupSimpleKey(view, R.id.key_minus, "-")
+        setupSimpleKey(view, R.id.key_slash, "/")
+        setupSimpleKey(view, R.id.key_colon, ":")
+        setupSimpleKey(view, R.id.key_semicolon, ";")
+        setupSimpleKey(view, R.id.key_open_paren, "(")
+        setupSimpleKey(view, R.id.key_close_paren, ")")
+        setupSimpleKey(view, R.id.key_dollar, "$")
+        setupSimpleKey(view, R.id.key_ampersand, "&")
+        setupSimpleKey(view, R.id.key_at, "@")
+        setupSimpleKey(view, R.id.key_question, "?")
+        setupSimpleKey(view, R.id.key_exclamation, "!")
+        setupSimpleKey(view, R.id.key_quote, "\"")
+        setupSimpleKey(view, R.id.key_apostrophe, "'")
+        setupSimpleKey(view, R.id.key_hyphen, "-")
+        setupSimpleKey(view, R.id.key_plus, "+")
+        setupSimpleKey(view, R.id.key_equals, "=")
+        setupSimpleKey(view, R.id.key_percent, "%")
+        
+        // Symbol keys
+        setupSimpleKey(view, R.id.key_bracket_open, "[")
+        setupSimpleKey(view, R.id.key_bracket_close, "]")
+        setupSimpleKey(view, R.id.key_brace_open, "{")
+        setupSimpleKey(view, R.id.key_brace_close, "}")
+        setupSimpleKey(view, R.id.key_hash, "#")
+        setupSimpleKey(view, R.id.key_star, "*")
+        setupSimpleKey(view, R.id.key_caret, "^")
+        setupSimpleKey(view, R.id.key_tilde, "~")
+        setupSimpleKey(view, R.id.key_pipe, "|")
+        setupSimpleKey(view, R.id.key_backslash, "\\")
+        setupSimpleKey(view, R.id.key_less_than, "<")
+        setupSimpleKey(view, R.id.key_greater_than, ">")
+        setupSimpleKey(view, R.id.key_underscore, "_")
+        setupSimpleKey(view, R.id.key_euro, "€")
+        setupSimpleKey(view, R.id.key_pound, "£")
+        setupSimpleKey(view, R.id.key_yen, "¥")
+        setupSimpleKey(view, R.id.key_bullet, "•")
+        setupSimpleKey(view, R.id.key_degree, "°")
+        setupSimpleKey(view, R.id.key_section, "§")
+        setupSimpleKey(view, R.id.key_copyright, "©")
+        setupSimpleKey(view, R.id.key_registered, "®")
+        setupSimpleKey(view, R.id.key_trademark, "™")
+        setupSimpleKey(view, R.id.key_infinity, "∞")
+        setupSimpleKey(view, R.id.key_sum, "∑")
+        setupSimpleKey(view, R.id.key_delta, "Δ")
+        setupSimpleKey(view, R.id.key_pi, "π")
+        setupSimpleKey(view, R.id.key_micro, "µ")
+        
+        // Special keys
+        setupSpecialKeys(view)
+    }
+    
+    private fun setupLetterKey(view: View, keyId: Int, letter: String) {
+        view.findViewById<Button>(keyId)?.setOnClickListener {
+            val text = if (isShiftEnabled || isShiftLocked) {
+                letter.uppercase()
+            } else {
+                letter.lowercase()
+            }
+            inputText(text)
+            
+            // Reset shift after single use (unless locked)
+            if (isShiftEnabled && !isShiftLocked) {
+                toggleShift()
+            }
+        }
+    }
+    
+    private fun setupSimpleKey(view: View, keyId: Int, text: String) {
+        view.findViewById<Button>(keyId)?.setOnClickListener {
+            inputText(text)
+        }
+    }
+    
+    private fun setupSpecialKeys(view: View) {
+        // Shift key with double-tap for caps lock
+        view.findViewById<Button>(R.id.key_shift)?.let { shiftButton ->
+            var lastClickTime = 0L
+            
+            shiftButton.setOnClickListener {
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastClickTime < 400) {
+                    // Double tap - toggle caps lock
+                    isShiftLocked = !isShiftLocked
+                    isShiftEnabled = isShiftLocked
+                    Log.d("SimpleKeyWise", "Caps lock toggled: $isShiftLocked")
+                } else {
+                    // Single tap - toggle shift
+                    if (!isShiftLocked) {
+                        isShiftEnabled = !isShiftEnabled
+                        Log.d("SimpleKeyWise", "Shift toggled: $isShiftEnabled")
+                    }
+                }
+                lastClickTime = currentTime
+                updateShiftButtonState(shiftButton)
+            }
+            
+            // Set initial state
+            updateShiftButtonState(shiftButton)
+        }
+        
+        // Space keys
+        setupSpaceKey(view, R.id.key_space)
+        setupSpaceKey(view, R.id.key_space_num)
+        setupSpaceKey(view, R.id.key_space_sym)
+        
+        // Enter keys
+        setupEnterKey(view, R.id.key_enter)
+        setupEnterKey(view, R.id.key_enter_num)
+        setupEnterKey(view, R.id.key_enter_sym)
+    }
+    
+    private fun setupSpaceKey(view: View, keyId: Int) {
+        view.findViewById<Button>(keyId)?.setOnClickListener {
+            inputText(" ")
+        }
+    }
+    
+    private fun setupEnterKey(view: View, keyId: Int) {
+        view.findViewById<Button>(keyId)?.setOnClickListener {
+            val inputConnection = currentInputConnection
+            inputConnection?.sendKeyEvent(
+                android.view.KeyEvent(
+                    android.view.KeyEvent.ACTION_DOWN,
+                    android.view.KeyEvent.KEYCODE_ENTER
+                )
+            )
+            inputConnection?.sendKeyEvent(
+                android.view.KeyEvent(
+                    android.view.KeyEvent.ACTION_UP,
+                    android.view.KeyEvent.KEYCODE_ENTER
+                )
+            )
+        }
+    }
+
+    private fun setupModeButtons(view: View) {
+        // Switch to numbers
+        view.findViewById<Button>(R.id.key_numbers)?.setOnClickListener {
+            switchToMode(KeyboardMode.NUMBERS)
+        }
+        
+        // Switch to emojis
+        view.findViewById<Button>(R.id.key_emoji)?.setOnClickListener {
+            switchToMode(KeyboardMode.EMOJIS)
+        }
+        
+        // Switch to symbols from numbers
+        view.findViewById<Button>(R.id.key_symbols)?.setOnClickListener {
+            switchToMode(KeyboardMode.SYMBOLS)
+        }
+        
+        // Switch to numbers from symbols
+        view.findViewById<Button>(R.id.key_123)?.setOnClickListener {
+            switchToMode(KeyboardMode.NUMBERS)
+        }
+        
+        // Switch back to letters
+        view.findViewById<Button>(R.id.key_abc)?.setOnClickListener {
+            switchToMode(KeyboardMode.LETTERS)
+        }
+        view.findViewById<Button>(R.id.key_abc_sym)?.setOnClickListener {
+            switchToMode(KeyboardMode.LETTERS)
+        }
+        view.findViewById<Button>(R.id.key_abc_emoji)?.setOnClickListener {
+            switchToMode(KeyboardMode.LETTERS)
+        }
+    }
+
+    private fun setupBackspaceButtons(view: View) {
+        setupBackspaceButton(view, R.id.key_backspace)
+        setupBackspaceButton(view, R.id.key_backspace_num)
+        setupBackspaceButton(view, R.id.key_backspace_sym)
+    }
+    
+    private fun setupBackspaceButton(view: View, keyId: Int) {
+        view.findViewById<Button>(keyId)?.let { backspaceButton ->
+            backspaceButton.setOnTouchListener { _, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        // Immediate single backspace
+                        performBackspace()
+                        
+                        // Start long press timer
+                        longPressRunnable = object : Runnable {
+                            override fun run() {
+                                if (!isLongPressing) {
+                                    isLongPressing = true
+                                }
+                                performBackspace()
+                                longPressHandler.postDelayed(this, REPEAT_DELAY)
+                            }
+                        }
+                        longPressHandler.postDelayed(longPressRunnable!!, LONG_PRESS_DELAY)
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        // Stop long press
+                        longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
+                        isLongPressing = false
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }
+    }
+    
+    private fun performBackspace() {
+        val inputConnection = currentInputConnection
+        inputConnection?.deleteSurroundingText(1, 0)
+    }
+    
+    private fun toggleShift() {
+        if (!isShiftLocked) {
+            isShiftEnabled = !isShiftEnabled
+        }
+        updateShiftButtonState()
+    }
+    
+    private fun updateShiftButtonState(shiftButton: Button? = null) {
+        val button = shiftButton ?: keyboardView?.findViewById<Button>(R.id.key_shift)
+        button?.let {
+            when {
+                isShiftLocked -> {
+                    // Caps lock state - bright blue with glow
+                    it.setBackgroundResource(R.drawable.shift_caps_lock)
+                    it.text = "⇧⇧" // Double arrow for caps lock
+                    Log.d("SimpleKeyWise", "Shift button set to CAPS LOCK state")
+                }
+                isShiftEnabled -> {
+                    // Shift enabled - blue 
+                    it.setBackgroundResource(R.drawable.shift_enabled)
+                    it.text = "⇧"
+                    Log.d("SimpleKeyWise", "Shift button set to ENABLED state")
+                }
+                else -> {
+                    // Normal state - dark gray
+                    it.setBackgroundResource(R.drawable.shift_normal)
+                    it.text = "⇧"
+                    Log.d("SimpleKeyWise", "Shift button set to NORMAL state")
+                }
+            }
+        }
+    }
+
+    private fun switchToMode(mode: KeyboardMode) {
+        currentMode = mode
+        
+        lettersLayout.visibility = if (mode == KeyboardMode.LETTERS) View.VISIBLE else View.GONE
+        numbersLayout.visibility = if (mode == KeyboardMode.NUMBERS) View.VISIBLE else View.GONE
+        symbolsLayout.visibility = if (mode == KeyboardMode.SYMBOLS) View.VISIBLE else View.GONE
+        emojisLayout.visibility = if (mode == KeyboardMode.EMOJIS) View.VISIBLE else View.GONE
+        
+        Log.d("SimpleKeyWise", "Switched to mode: $mode")
+    }
+
+    private fun inputText(text: String) {
+        val inputConnection = currentInputConnection
+        inputConnection?.commitText(text, 1)
+        Log.d("SimpleKeyWise", "Input text: $text")
+    }
+
+    private fun setupEmojiButtons(view: View) {
+        // Emoji category buttons
+        view.findViewById<Button>(R.id.emoji_cat_smileys)?.setOnClickListener {
+            switchEmojiCategory(EmojiCategory.SMILEYS)
+        }
+        
+        view.findViewById<Button>(R.id.emoji_cat_people)?.setOnClickListener {
+            switchEmojiCategory(EmojiCategory.PEOPLE)
+        }
+        
+        view.findViewById<Button>(R.id.emoji_cat_nature)?.setOnClickListener {
+            switchEmojiCategory(EmojiCategory.NATURE)
+        }
+        
+        view.findViewById<Button>(R.id.emoji_cat_objects)?.setOnClickListener {
+            switchEmojiCategory(EmojiCategory.OBJECTS)
+        }
+        
+        view.findViewById<Button>(R.id.emoji_cat_symbols)?.setOnClickListener {
+            switchEmojiCategory(EmojiCategory.SYMBOLS)
+        }
+        
+        // Emoji keys - Smileys
+        setupEmojiKey(view, R.id.emoji_grinning, "😀")
+        setupEmojiKey(view, R.id.emoji_joy, "😂")
+        setupEmojiKey(view, R.id.emoji_smile, "😊")
+        setupEmojiKey(view, R.id.emoji_wink, "😉")
+        setupEmojiKey(view, R.id.emoji_heart_eyes, "😍")
+        setupEmojiKey(view, R.id.emoji_kissing, "😘")
+        setupEmojiKey(view, R.id.emoji_thinking, "🤔")
+        setupEmojiKey(view, R.id.emoji_cool, "😎")
+        setupEmojiKey(view, R.id.emoji_neutral, "😐")
+        setupEmojiKey(view, R.id.emoji_confused, "😕")
+        setupEmojiKey(view, R.id.emoji_sad, "😢")
+        setupEmojiKey(view, R.id.emoji_angry, "😠")
+        setupEmojiKey(view, R.id.emoji_surprised, "😲")
+        setupEmojiKey(view, R.id.emoji_tired, "😴")
+        setupEmojiKey(view, R.id.emoji_laugh, "🤣")
+        setupEmojiKey(view, R.id.emoji_party, "🥳")
+        
+        // Emoji special keys
+        setupSpaceKey(view, R.id.key_space_emoji)
+        setupEnterKey(view, R.id.key_enter_emoji)
+        setupBackspaceButton(view, R.id.key_backspace_emoji)
+        setupSimpleKey(view, R.id.key_comma_emoji, ",")
+        
+        // Setup emoji buttons that use generic handlers
+        setupEmojiButtonsInContainer(view, R.id.emoji_people_content)
+        setupEmojiButtonsInContainer(view, R.id.emoji_nature_content)
+        setupEmojiButtonsInContainer(view, R.id.emoji_objects_content)
+        setupEmojiButtonsInContainer(view, R.id.emoji_symbols_content)
+    }
+    
+    private fun setupEmojiButtonsInContainer(view: View, containerId: Int) {
+        val container = view.findViewById<LinearLayout>(containerId)
+        container?.let { containerView ->
+            // Recursively find all buttons in the container
+            for (i in 0 until containerView.childCount) {
+                val child = containerView.getChildAt(i)
+                if (child is LinearLayout) {
+                    // This is a row of buttons
+                    for (j in 0 until child.childCount) {
+                        val button = child.getChildAt(j)
+                        if (button is Button) {
+                            val emoji = button.text.toString()
+                            button.setOnClickListener {
+                                inputText(emoji)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private fun setupSelectionOperations(view: View) {
+        view.findViewById<Button>(R.id.btn_select_all)?.setOnClickListener {
+            selectAllText()
+        }
+        
+        view.findViewById<Button>(R.id.btn_cut)?.setOnClickListener {
+            cutText()
+        }
+        
+        view.findViewById<Button>(R.id.btn_copy)?.setOnClickListener {
+            copyText()
+        }
+        
+        view.findViewById<Button>(R.id.btn_paste)?.setOnClickListener {
+            pasteText()
+        }
+        
+        view.findViewById<Button>(R.id.btn_clear_selection)?.setOnClickListener {
+            clearSelection()
+        }
+    }
+    
+    private fun setupEmojiKey(view: View, keyId: Int, emoji: String) {
+        view.findViewById<Button>(keyId)?.setOnClickListener {
+            inputText(emoji)
+        }
+    }
+    
+    private fun switchEmojiCategory(category: EmojiCategory) {
+        currentEmojiCategory = category
+        
+        // Hide all category contents
+        keyboardView?.findViewById<LinearLayout>(R.id.emoji_smileys_content)?.visibility = View.GONE
+        keyboardView?.findViewById<LinearLayout>(R.id.emoji_people_content)?.visibility = View.GONE
+        keyboardView?.findViewById<LinearLayout>(R.id.emoji_nature_content)?.visibility = View.GONE
+        keyboardView?.findViewById<LinearLayout>(R.id.emoji_objects_content)?.visibility = View.GONE
+        keyboardView?.findViewById<LinearLayout>(R.id.emoji_symbols_content)?.visibility = View.GONE
+        
+        // Show selected category content
+        val contentId = when (category) {
+            EmojiCategory.SMILEYS -> R.id.emoji_smileys_content
+            EmojiCategory.PEOPLE -> R.id.emoji_people_content
+            EmojiCategory.NATURE -> R.id.emoji_nature_content
+            EmojiCategory.OBJECTS -> R.id.emoji_objects_content
+            EmojiCategory.SYMBOLS -> R.id.emoji_symbols_content
+        }
+        
+        keyboardView?.findViewById<LinearLayout>(contentId)?.visibility = View.VISIBLE
+        
+        // Update category button backgrounds
+        updateEmojiCategoryButtons()
+        
+        Log.d("SimpleKeyWise", "Switched to emoji category: $category")
+    }
+    
+    private fun updateEmojiCategoryButtons() {
+        keyboardView?.let { view ->
+            val buttons = listOf(
+                view.findViewById<Button>(R.id.emoji_cat_smileys) to EmojiCategory.SMILEYS,
+                view.findViewById<Button>(R.id.emoji_cat_people) to EmojiCategory.PEOPLE,
+                view.findViewById<Button>(R.id.emoji_cat_nature) to EmojiCategory.NATURE,
+                view.findViewById<Button>(R.id.emoji_cat_objects) to EmojiCategory.OBJECTS,
+                view.findViewById<Button>(R.id.emoji_cat_symbols) to EmojiCategory.SYMBOLS
+            )
+            
+            buttons.forEach { (button, category) ->
+                button?.setBackgroundResource(
+                    if (category == currentEmojiCategory) R.drawable.modern_ai_button 
+                    else R.drawable.modern_key_button
+                )
+            }
+        }
+    }
+    
+    private fun setupUndoRedo(view: View) {
+        view.findViewById<ImageButton>(R.id.btn_undo)?.setOnClickListener {
+            performUndo()
+        }
+        
+        // view.findViewById<ImageButton>(R.id.btn_redo)?.setOnClickListener {
+        //     performRedo()
+        // }
+        
+        // Initialize with current text
+        saveCurrentTextToHistory()
+    }
+    
+    private fun saveCurrentTextToHistory() {
+        val inputConnection = currentInputConnection ?: return
+        
+        val extractedText = inputConnection.getExtractedText(
+            android.view.inputmethod.ExtractedTextRequest(), 0
+        )
+        
+        val currentText = extractedText?.text?.toString() ?: ""
+        
+        // Don't save if it's the same as the last entry
+        if (textHistory.isNotEmpty() && textHistory.last() == currentText) {
+            return
+        }
+        
+        // Add to history
+        textHistory.add(currentText)
+        currentHistoryIndex = textHistory.size - 1
+        
+        // Limit history size
+        if (textHistory.size > maxHistorySize) {
+            textHistory.removeAt(0)
+            currentHistoryIndex = textHistory.size - 1
+        }
+        
+        Log.d("SimpleKeyWise", "Saved text to history: index=$currentHistoryIndex, size=${textHistory.size}")
+    }
+    
+    private fun performUndo() {
+        if (textHistory.isEmpty() || currentHistoryIndex <= 0) {
+            showToast("Nothing to undo")
+            return
+        }
+        
+        currentHistoryIndex--
+        val textToRestore = textHistory[currentHistoryIndex]
+        
+        replaceAllText(textToRestore)
+        showToast("Undo: Restored previous text")
+        
+        Log.d("SimpleKeyWise", "Undo performed: index=$currentHistoryIndex")
+    }
+    
+    private fun performRedo() {
+        if (textHistory.isEmpty() || currentHistoryIndex >= textHistory.size - 1) {
+            showToast("Nothing to redo")
+            return
+        }
+        
+        currentHistoryIndex++
+        val textToRestore = textHistory[currentHistoryIndex]
+        
+        replaceAllText(textToRestore)
+        showToast("Redo: Restored next text")
+        
+        Log.d("SimpleKeyWise", "Redo performed: index=$currentHistoryIndex")
+    }
+    
+    private fun replaceAllText(newText: String) {
+        val inputConnection = currentInputConnection ?: return
+        
+        // Get current text length
+        val extractedText = inputConnection.getExtractedText(
+            android.view.inputmethod.ExtractedTextRequest(), 0
+        )
+        val currentText = extractedText?.text?.toString() ?: ""
+        
+        // Select all and replace
+        inputConnection.setSelection(0, currentText.length)
+        inputConnection.commitText(newText, 1)
+    }
+
+    // Text selection operations
+    private fun selectAllText() {
+        val inputConnection = currentInputConnection ?: return
+        inputConnection.performContextMenuAction(android.R.id.selectAll)
+        showSelectionBar()
+        Log.d("SimpleKeyWise", "Select all text")
+    }
+    
+    private fun cutText() {
+        val inputConnection = currentInputConnection ?: return
+        inputConnection.performContextMenuAction(android.R.id.cut)
+        hideSelectionBar()
+        showToast("Text cut to clipboard")
+        Log.d("SimpleKeyWise", "Cut text")
+    }
+    
+    private fun copyText() {
+        val inputConnection = currentInputConnection ?: return
+        inputConnection.performContextMenuAction(android.R.id.copy)
+        showToast("Text copied to clipboard")
+        Log.d("SimpleKeyWise", "Copy text")
+    }
+    
+    private fun pasteText() {
+        val inputConnection = currentInputConnection ?: return
+        inputConnection.performContextMenuAction(android.R.id.paste)
+        hideSelectionBar()
+        showToast("Text pasted")
+        Log.d("SimpleKeyWise", "Paste text")
+    }
+    
+    private fun clearSelection() {
+        val inputConnection = currentInputConnection ?: return
+        inputConnection.deleteSurroundingText(0, 0)
+        hideSelectionBar()
+        Log.d("SimpleKeyWise", "Clear selection")
+    }
+    
+    private fun showSelectionBar() {
+        isSelectionBarVisible = true
+        selectionOperationsBar.visibility = View.VISIBLE
+        selectionOperationsBar.alpha = 0f
+        selectionOperationsBar.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .start()
+    }
+    
+    private fun hideSelectionBar() {
+        isSelectionBarVisible = false
+        selectionOperationsBar.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .withEndAction {
+                selectionOperationsBar.visibility = View.GONE
+            }
+            .start()
+    }
+
+    private fun handleAIAction(action: AIAction) {
+        Log.d("SimpleKeyWise", "AI Action triggered: ${action.displayName}")
+        
+        // Prevent multiple simultaneous AI calls
+        if (isAIProcessing) {
+            showToast("AI is already processing, please wait...")
+            return
+        }
+        
+        // Save current text state before AI action (for undo functionality)
+        saveCurrentTextToHistory()
+        
+        val inputConnection = currentInputConnection ?: return
+        
+        // Show loading state
+        showAILoading(action.displayName)
+        
+        // Get current cursor position
+        val extractedText = inputConnection.getExtractedText(
+            android.view.inputmethod.ExtractedTextRequest(), 0
+        )
+        
+        val currentText = extractedText?.text?.toString() ?: ""
+        val selectionStart = extractedText?.selectionStart ?: 0
+        val selectionEnd = extractedText?.selectionEnd ?: 0
+        
+        // For Answer action, handle differently - can work with questions or generate responses
+        val (textToProcess, shouldReplace) = if (action == AIAction.ANSWER) {
+            getContextualTextForAnswer(currentText, selectionStart, selectionEnd)
+        } else {
+            getContextualText(currentText, selectionStart, selectionEnd)
+        }
+        
+        Log.d("SimpleKeyWise", "Text to process: '$textToProcess'")
+        Log.d("SimpleKeyWise", "Should replace: $shouldReplace")
+        
+        if (textToProcess.isNotBlank() || action == AIAction.ANSWER) {
+            keyboardScope.launch {
+                try {
+                    Log.d("SimpleKeyWise", "Starting AI action...")
+                    val result = repository.executeAIAction(action, textToProcess)
+                    result.onSuccess { processedText ->
+                        Log.d("SimpleKeyWise", "AI action successful: $processedText")
+                        showAIResult(processedText, shouldReplace, textToProcess)
+                        hideAILoading()
+                    }.onFailure { error ->
+                        Log.e("SimpleKeyWise", "AI action failed: ${error.message}")
+                        showToast("AI Error: ${error.message}")
+                        hideAILoading()
+                    }
+                } catch (e: Exception) {
+                    Log.e("SimpleKeyWise", "AI action exception: ${e.message}")
+                    showToast("AI Error: ${e.message}")
+                    hideAILoading()
+                }
+            }
+        } else {
+            hideAILoading()
+            showToast("No text to process. Type something first!")
+        }
+    }
+    
+    private fun getContextualTextForAnswer(fullText: String, selectionStart: Int, selectionEnd: Int): Pair<String, Boolean> {
+        return if (selectionStart != selectionEnd) {
+            // User has selected text - treat as a question
+            val selectedText = fullText.substring(selectionStart, selectionEnd)
+            Pair(selectedText, false) // Don't replace, append answer
+        } else if (fullText.isBlank()) {
+            // No text at all - prompt for a question
+            Pair("How can I help you today?", false)
+        } else {
+            // Get the current sentence or last few words as context
+            val contextRadius = 200
+            val start = maxOf(0, selectionStart - contextRadius)
+            val end = minOf(fullText.length, selectionStart + contextRadius)
+            val contextText = fullText.substring(start, end)
+            
+            // If it looks like a question, answer it; otherwise provide help
+            if (contextText.contains("?") || contextText.lowercase().startsWith("what") || 
+                contextText.lowercase().startsWith("how") || contextText.lowercase().startsWith("why") ||
+                contextText.lowercase().startsWith("when") || contextText.lowercase().startsWith("where")) {
+                Pair(contextText.trim(), false) // Answer the question
+            } else {
+                Pair("Please explain: $contextText", false) // Ask for explanation
+            }
+        }
+    }
+    
+    private fun getContextualText(fullText: String, selectionStart: Int, selectionEnd: Int): Pair<String, Boolean> {
+        return if (selectionStart != selectionEnd) {
+            // User has selected text
+            val selectedText = fullText.substring(selectionStart, selectionEnd)
+            Pair(selectedText, true)
+        } else {
+            // No selection, get surrounding context
+            val contextRadius = 500
+            val start = maxOf(0, selectionStart - contextRadius)
+            val end = minOf(fullText.length, selectionStart + contextRadius)
+            val contextText = fullText.substring(start, end)
+            
+            // Find sentence boundaries
+            val sentences = contextText.split(Regex("[.!?\\n]"))
+            if (sentences.isNotEmpty()) {
+                val middleSentence = sentences[sentences.size / 2].trim()
+                if (middleSentence.isNotBlank()) {
+                    Pair(middleSentence, true)
+                } else {
+                    Pair(contextText.trim(), false)
+                }
+            } else {
+                Pair(contextText.trim(), false)
+            }
+        }
+    }
+    
+    private fun showAIResult(result: String, shouldReplace: Boolean, originalText: String) {
+        val inputConnection = currentInputConnection ?: return
+        
+        if (shouldReplace) {
+            // Replace the original text with AI result
+            val extractedText = inputConnection.getExtractedText(
+                android.view.inputmethod.ExtractedTextRequest(), 0
+            )
+            val currentText = extractedText?.text?.toString() ?: ""
+            val selectionStart = extractedText?.selectionStart ?: 0
+            val selectionEnd = extractedText?.selectionEnd ?: 0
+            
+            if (selectionStart != selectionEnd) {
+                // Replace selected text
+                inputConnection.setSelection(selectionStart, selectionEnd)
+                inputConnection.commitText(result, 1)
+            } else {
+                // Find and replace the original text
+                val originalIndex = currentText.indexOf(originalText)
+                if (originalIndex != -1) {
+                    inputConnection.setSelection(originalIndex, originalIndex + originalText.length)
+                    inputConnection.commitText(result, 1)
+                } else {
+                    // Fallback: just insert the result
+                    inputConnection.commitText(result, 1)
+                }
+            }
+        } else {
+            // For Answer action, add the response nicely formatted
+            val formattedResult = if (result.startsWith("Answer:") || result.startsWith("Response:")) {
+                "\n\n$result"
+            } else {
+                "\n\nAnswer: $result"
+            }
+            inputConnection.commitText(formattedResult, 1)
+        }
+        
+        Log.d("SimpleKeyWise", "AI result applied: $result")
+        
+        // Save the new text state to history (for redo functionality)
+        saveCurrentTextToHistory()
+    }
+    
+    private fun showToast(message: String) {
+        // Show actual toast message to user
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        Log.d("SimpleKeyWise", "Toast: $message")
+    }
+
+    private fun showAILoading(actionName: String) {
+        isAIProcessing = true
+        
+        // Show loading indicator
+        keyboardView?.findViewById<ProgressBar>(R.id.ai_loading_indicator)?.visibility = View.VISIBLE
+        
+        // Update status text
+        keyboardView?.findViewById<TextView>(R.id.txt_ai_status)?.text = "$actionName..."
+        
+        // Disable all AI buttons
+        setAIButtonsEnabled(false)
+        
+        Log.d("SimpleKeyWise", "AI loading state shown for: $actionName")
+    }
+    
+    private fun hideAILoading() {
+        isAIProcessing = false
+        
+        // Hide loading indicator
+        keyboardView?.findViewById<ProgressBar>(R.id.ai_loading_indicator)?.visibility = View.GONE
+        
+        // Restore status text
+        val statusText = if (isAISectionVisible) "AI Actions" else "AI Actions (Hidden)"
+        keyboardView?.findViewById<TextView>(R.id.txt_ai_status)?.text = statusText
+        
+        // Re-enable all AI buttons
+        setAIButtonsEnabled(true)
+        
+        Log.d("SimpleKeyWise", "AI loading state hidden")
+    }
+    
+    private fun setAIButtonsEnabled(enabled: Boolean) {
+        try {
+            keyboardView?.let { view ->
+                val buttons = listOf(
+                    view.findViewById<Button>(R.id.btn_rewrite),
+                    view.findViewById<Button>(R.id.btn_summarize),
+                    view.findViewById<Button>(R.id.btn_explain),
+                    view.findViewById<Button>(R.id.btn_listify),
+                    view.findViewById<Button>(R.id.btn_emojify),
+                    view.findViewById<Button>(R.id.btn_make_formal),
+                    view.findViewById<Button>(R.id.btn_tweetify),
+                    view.findViewById<Button>(R.id.btn_promptify),
+                    view.findViewById<Button>(R.id.btn_translate),
+                    view.findViewById<Button>(R.id.btn_creative),
+                    view.findViewById<Button>(R.id.btn_answer)
+                )
+                
+                buttons.forEach { button ->
+                    button?.isEnabled = enabled
+                    button?.alpha = if (enabled) 1.0f else 0.5f
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SimpleKeyWise", "Error setting AI button states: ${e.message}")
+        }
+    }
+
+    override fun onUpdateSelection(oldSelStart: Int, oldSelEnd: Int, newSelStart: Int, newSelEnd: Int, candidatesStart: Int, candidatesEnd: Int) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        
+        // Show selection bar if text is selected, hide if no selection
+        if (newSelStart != newSelEnd && !isSelectionBarVisible) {
+            showSelectionBar()
+        } else if (newSelStart == newSelEnd && isSelectionBarVisible) {
+            hideSelectionBar()
+        }
+        
+        // Save text state periodically during editing (but not too frequently)
+        // Only save when cursor position changes significantly or text length changes
+        if (kotlin.math.abs(newSelStart - oldSelStart) > 5 || 
+            kotlin.math.abs(newSelEnd - oldSelEnd) > 5 ||
+            (oldSelStart == oldSelEnd && newSelStart == newSelEnd)) {
+            saveCurrentTextToHistory()
+        }
+    }
+
+    override fun onDestroy() {
+        keyboardScope.cancel()
+        longPressHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
+} 

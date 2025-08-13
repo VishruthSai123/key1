@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    
+    <!-- Active gradient background (brighter/highlighted) -->
+    <gradient
+        android:angle="135"
+        android:startColor="#FF6B35"
+        android:centerColor="#FF8500"
+        android:endColor="#FFB84D"
+        android:type="linear" />
+    
+    <!-- Enhanced stroke for active state -->
+    <stroke
+        android:width="2dp"
+        android:color="#FFD700" />
+    
+    <!-- Rounded corners -->
+    <corners android:radius="12dp" />
+    
+    <!-- Elevated shadow effect -->
+    <padding
+        android:left="1dp"
+        android:top="1dp"
+        android:right="1dp"
+        android:bottom="1dp" />
+        
+</shape> 

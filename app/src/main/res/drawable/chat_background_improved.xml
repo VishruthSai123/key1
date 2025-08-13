@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    
+    <!-- Dark gradient background for chat area -->
+    <gradient
+        android:angle="135"
+        android:startColor="#1A1A1A"
+        android:centerColor="#2D2D30"
+        android:endColor="#1E1E1E"
+        android:type="linear" />
+    
+    <!-- Enhanced border -->
+    <stroke
+        android:width="2dp"
+        android:color="#4A9EFF" />
+    
+    <!-- Rounded corners -->
+    <corners android:radius="16dp" />
+    
+</shape> 

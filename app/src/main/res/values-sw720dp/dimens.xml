@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Large tablet dimensions (720dp and above) -->
+    <dimen name="screen_margin">64dp</dimen>
+    <dimen name="card_spacing">32dp</dimen>
+    <dimen name="card_padding">32dp</dimen>
+    <dimen name="button_spacing">16dp</dimen>
+    <dimen name="icon_size">24dp</dimen>
+    <dimen name="step_indicator_size">56dp</dimen>
+    <dimen name="header_font_size">48sp</dimen>
+    <dimen name="subtitle_font_size">20sp</dimen>
+    <dimen name="title_font_size">20sp</dimen>
+    <dimen name="body_font_size">18sp</dimen>
+    <dimen name="small_font_size">16sp</dimen>
+    <dimen name="content_max_width">1000dp</dimen>
+</resources> 

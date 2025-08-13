@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#33FFFFFF">
+    <item>
+        <layer-list>
+            <!-- Enhanced shadow with orange tint for caps lock -->
+            <item android:top="1dp" android:left="1dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#30FF6B35" />
+                    <corners android:radius="12dp" />
+                </shape>
+            </item>
+            <!-- Main button body with warm orange -->
+            <item android:bottom="1dp" android:right="1dp">
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:startColor="#F59E0B"
+                        android:endColor="#D97706"
+                        android:angle="270" />
+                    <corners android:radius="12dp" />
+                    <stroke
+                        android:width="1dp"
+                        android:color="#FBBF24" />
+                </shape>
+            </item>
+            <!-- Inner highlight for polish -->
+            <item android:top="2dp" android:left="2dp" android:bottom="8dp" android:right="2dp">
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:startColor="#50FFFFFF"
+                        android:endColor="#20FFFFFF"
+                        android:angle="270" />
+                    <corners android:radius="10dp" />
+                </shape>
+            </item>
+            <!-- Distinctive inner border for caps lock -->
+            <item android:top="4dp" android:left="4dp" android:bottom="5dp" android:right="4dp">
+                <shape android:shape="rectangle">
+                    <stroke
+                        android:width="1.5dp"
+                        android:color="#80FFFFFF" />
+                    <corners android:radius="8dp" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+</ripple> 
