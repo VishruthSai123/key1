@@ -8,7 +8,7 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     
-    <!-- NeoBoard Modern Colors -->
+    <!-- SendRight Modern Colors -->
     <color name="keywise_primary">#FF007AFF</color>
     <color name="keywise_primary_dark">#FF0056CC</color>
     <color name="keywise_success">#FF28A745</color>

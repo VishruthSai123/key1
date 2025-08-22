@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
 class AIRepository(private val context: Context) {
     
     private val sharedPreferences = 
-        context.getSharedPreferences("neoboard_prefs", Context.MODE_PRIVATE)
+        context.getSharedPreferences("sendright_prefs", Context.MODE_PRIVATE)
     
     private val geminiService = GeminiService()
     
@@ -432,7 +432,7 @@ CRITICAL OUTPUT REQUIREMENTS:
      * Get response mode setting
      */
     private fun getResponseMode(): String {
-        val settingsPrefs = context.getSharedPreferences("neoboard_settings", Context.MODE_PRIVATE)
+        val settingsPrefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
         return settingsPrefs.getString("response_mode", "normal") ?: "normal"
     }
     

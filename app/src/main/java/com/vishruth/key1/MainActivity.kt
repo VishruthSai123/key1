@@ -36,10 +36,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.VectorPainter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.vector.group
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.vector.ImageVector.Builder
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -58,6 +73,9 @@ import com.vishruth.key1.data.KeyBackgroundStyles
 import com.vishruth.key1.data.ChatMessage as NewChatMessage
 import com.vishruth.key1.data.ChatConversation
 import com.vishruth.key1.data.MessageType
+import com.vishruth.key1.ui.enable.EnableKeyboardScreen
+import com.vishruth.key1.ui.enable.SelectKeyboardScreen
+import com.vishruth.key1.ui.enable.SetupCompleteScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -99,14 +117,23 @@ class MainActivity : ComponentActivity() {
         // Check if we should open chat directly
         val openChat = intent.getBooleanExtra("open_chat", false)
         
+        // Check keyboard setup status for onboarding logic
+        val isKeyboardFullySetup = isKeyboardEnabled(this) && isKeyboardSelected(this)
+        
         setContent {
             Key1Theme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = colorResource(R.color.keywise_background)
                 ) {
-                    NeoBoardSetupScreen(initialTab = if (openChat) AppTab.CHAT else AppTab.SETUP) { tab ->
-                        selectedTab = tab
+                    if (!isKeyboardFullySetup && !openChat) {
+                        // Show onboarding enable screens if keyboard not setup
+                        EnableScreensOnboarding()
+                    } else {
+                        // Show main app if keyboard is setup or chat requested
+                        SendRightSetupScreen(initialTab = if (openChat) AppTab.CHAT else AppTab.ENABLE_SCREENS) { tab ->
+                            selectedTab = tab
+                        }
                     }
                 }
             }
@@ -125,9 +152,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Tab definitions
+// Tab definitions - Main app sections
 enum class AppTab(val title: String, val icon: ImageVector) {
-    SETUP("Setup", Icons.Default.Settings),
+    ENABLE_SCREENS("Setup", Icons.Default.TouchApp), // Setup screens (Enable + Select)
     FEATURES("Features", Icons.Default.AutoAwesome),
     LOGIC("How It Works", Icons.Default.Psychology),
     SETTINGS("Settings", Icons.Default.Tune),
@@ -136,7 +163,7 @@ enum class AppTab(val title: String, val icon: ImageVector) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NeoBoardSetupScreen(initialTab: AppTab = AppTab.SETUP, onTabSelected: ((MutableState<AppTab>) -> Unit)? = null) {
+fun SendRightSetupScreen(initialTab: AppTab = AppTab.ENABLE_SCREENS, onTabSelected: ((MutableState<AppTab>) -> Unit)? = null) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val aiRepository = remember { AIRepository(context) }
@@ -222,17 +249,7 @@ fun NeoBoardSetupScreen(initialTab: AppTab = AppTab.SETUP, onTabSelected: ((Muta
                 
                 // Main Content
                 when (selectedTab.value) {
-                    AppTab.SETUP -> SetupTabContent(
-                        isKeyboardEnabled = isKeyboardEnabled.value,
-                        isKeyboardSelected = isKeyboardSelected.value,
-                        hasRestartedAfterSetup = hasRestartedAfterSetup.value,
-                        refreshStatus = refreshStatus,
-                        onRestartCompleted = {
-                            markRestartCompleted(context)
-                            hasRestartedAfterSetup.value = true
-                        },
-                        context = context
-                    )
+                    AppTab.ENABLE_SCREENS -> EnableScreensTabContent(context = context) // Primary enable screens tab
                     AppTab.FEATURES -> FeaturesTabContent()
                     AppTab.LOGIC -> LogicTabContent()
                     AppTab.SETTINGS -> SettingsTabContent(context)
@@ -243,8 +260,66 @@ fun NeoBoardSetupScreen(initialTab: AppTab = AppTab.SETUP, onTabSelected: ((Muta
     )
 }
 
+// Custom SVG Menu Icon
+@Composable
+fun CustomMenuIcon() {
+    Canvas(modifier = Modifier.size(40.dp)) {
+        val canvasWidth = size.width
+        val canvasHeight = size.height
+        
+        // Draw background circle
+        drawCircle(
+            color = Color(0x54648465), // #648465 with 33% opacity
+            radius = canvasWidth / 2f,
+            center = androidx.compose.ui.geometry.Offset(canvasWidth / 2f, canvasHeight / 2f)
+        )
+        
+        // Draw three dots
+        val dotRadius = 4f
+        val centerX = canvasWidth / 2f
+        
+        // Top dot
+        drawCircle(
+            color = Color.Black,
+            radius = dotRadius,
+            center = androidx.compose.ui.geometry.Offset(centerX, canvasHeight * 0.325f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 8f)
+        )
+        
+        // Middle dot
+        drawCircle(
+            color = Color.Black,
+            radius = dotRadius,
+            center = androidx.compose.ui.geometry.Offset(centerX, canvasHeight * 0.5f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 8f)
+        )
+        
+        // Bottom dot
+        drawCircle(
+            color = Color.Black,
+            radius = dotRadius,
+            center = androidx.compose.ui.geometry.Offset(centerX, canvasHeight * 0.675f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 8f)
+        )
+    }
+}
+
 @Composable
 fun AppHeader(onMenuClick: () -> Unit) {
+    val context = LocalContext.current
+    
+    // Load logo bitmap - moved outside composable scope
+    val logoBitmap = remember {
+        try {
+            val inputStream = context.assets.open("logo.jpg")
+            val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            bitmap
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(0.dp),
@@ -254,14 +329,7 @@ fun AppHeader(onMenuClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            colorResource(R.color.keywise_gradient_start),
-                            colorResource(R.color.keywise_gradient_end)
-                        )
-                    )
-                )
+                .background(Color.White)
                 .padding(top = 40.dp, bottom = 20.dp, start = 16.dp, end = 16.dp)
         ) {
             Row(
@@ -269,30 +337,55 @@ fun AppHeader(onMenuClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Left side - App branding
-                Text(
-                    text = "NeoBoard",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                // Left side - Logo and App branding
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // App Logo
+                    if (logoBitmap != null) {
+                        Image(
+                            bitmap = logoBitmap.asImageBitmap(),
+                            contentDescription = "SendRight Logo",
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
+                    } else {
+                        // Fallback icon if logo fails to load
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(
+                                    Color.White.copy(alpha = 0.2f),
+                                    RoundedCornerShape(8.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Keyboard,
+                                contentDescription = "Logo",
+                                tint = Color.Black,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    
+                    // App name
+                    Text(
+                        text = "SendRight",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                }
                 
-                // Right side - Menu button
+                // Right side - Custom Menu button
                 IconButton(
                     onClick = onMenuClick,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            Color.White.copy(alpha = 0.2f),
-                            RoundedCornerShape(12.dp)
-                        )
+                    modifier = Modifier.size(48.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = "Menu",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    CustomMenuIcon()
                 }
             }
         }
@@ -343,7 +436,7 @@ fun DrawerHeader() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "NeoBoard",
+            text = "SendRight",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = colorResource(R.color.keywise_text_primary)
@@ -986,7 +1079,7 @@ fun ModernHeader() {
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = "NeoBoard",
+                    text = "SendRight",
                     fontSize = dimensionResource(R.dimen.header_font_size).value.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -1065,8 +1158,8 @@ fun ProgressIndicator(isKeyboardEnabled: Boolean, isKeyboardSelected: Boolean) {
             
             Text(
                 text = when {
-                    isKeyboardEnabled && isKeyboardSelected -> "🎉 Setup Complete! Ready to use NeoBoard AI"
-                    isKeyboardEnabled -> "Almost there! Select NeoBoard as your default keyboard"
+                    isKeyboardEnabled && isKeyboardSelected -> "🎉 Setup Complete! Ready to use SendRight AI"
+                    isKeyboardEnabled -> "Almost there! Select SendRight as your default keyboard"
                     else -> "Let's get started with the setup"
                 },
                 fontSize = dimensionResource(R.dimen.small_font_size).value.sp,
@@ -1473,7 +1566,7 @@ fun ReadyToUseCard() {
             )
             
             Text(
-                text = "NeoBoard AI is now active. Open any app and start typing to experience the power of Neonix AI!",
+                text = "SendRight AI is now active. Open any app and start typing to experience the power of Neonix AI!",
                 fontSize = dimensionResource(R.dimen.body_font_size).value.sp,
                 color = Color.White.copy(alpha = 0.9f),
                 textAlign = TextAlign.Center,
@@ -1528,7 +1621,7 @@ fun SafetyRestartCard(onRestartCompleted: () -> Unit = {}) {
             SafetyStepItem(
                 stepNumber = "2", 
                 title = "Test in Safe Apps First",
-                description = "Try NeoBoard in Notes, Messages, or Email apps before using in sensitive applications.",
+                description = "Try SendRight in Notes, Messages, or Email apps before using in sensitive applications.",
                 isImportant = false
             )
             
@@ -1620,11 +1713,11 @@ fun GeneralSafetyCard() {
             Spacer(modifier = Modifier.height(dimensionResource(R.dimen.feature_item_spacing)))
             
             val safetyTips = listOf(
-                "🔒 Your data stays private - NeoBoard processes text locally when possible",
+                "🔒 Your data stays private - SendRight processes text locally when possible",
                 "🔄 Keep your original keyboard enabled as backup",
                 "📱 Restart your device after setup for best performance", 
                 "🧪 Test in safe apps (Notes, Messages) before sensitive use",
-                "⚙️ You can disable NeoBoard anytime in Settings > Languages & Input"
+                "⚙️ You can disable SendRight anytime in Settings > Languages & Input"
             )
             
             safetyTips.forEach { tip ->
@@ -1730,7 +1823,7 @@ fun isKeyboardSelected(context: Context): Boolean {
 }
 
 fun hasUserRestartedAfterSetup(context: Context): Boolean {
-    val prefs = context.getSharedPreferences("neoboard_setup", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("sendright_setup", Context.MODE_PRIVATE)
     val setupCompleted = isKeyboardEnabled(context) && isKeyboardSelected(context)
     
     if (!setupCompleted) {
@@ -1765,7 +1858,7 @@ fun hasUserRestartedAfterSetup(context: Context): Boolean {
 }
 
 fun markRestartCompleted(context: Context) {
-    val prefs = context.getSharedPreferences("neoboard_setup", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("sendright_setup", Context.MODE_PRIVATE)
     prefs.edit().putBoolean("restart_completed", true).apply()
 }
 
@@ -1775,24 +1868,24 @@ enum class ResponseMode(val displayName: String, val value: String) {
 }
 
 fun getResponseMode(context: Context): ResponseMode {
-    val prefs = context.getSharedPreferences("neoboard_settings", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
     val modeValue = prefs.getString("response_mode", ResponseMode.NORMAL.value)
     return ResponseMode.values().find { it.value == modeValue } ?: ResponseMode.NORMAL
 }
 
 fun setResponseMode(context: Context, mode: ResponseMode) {
-    val prefs = context.getSharedPreferences("neoboard_settings", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
     prefs.edit().putString("response_mode", mode.value).apply()
 }
 
 // Theme Management Functions
 fun getSelectedTheme(context: Context): String {
-    val prefs = context.getSharedPreferences("neoboard_settings", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
     return prefs.getString("keyboard_theme", "white") ?: "white"
 }
 
 fun setSelectedTheme(context: Context, themeId: String) {
-    val prefs = context.getSharedPreferences("neoboard_settings", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
     prefs.edit().putString("keyboard_theme", themeId).apply()
     
     // Log the theme change for debugging
@@ -1801,12 +1894,12 @@ fun setSelectedTheme(context: Context, themeId: String) {
 
 // Key Background Style Management Functions
 fun getSelectedKeyBackgroundStyle(context: Context): String {
-    val prefs = context.getSharedPreferences("neoboard_settings", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
     return prefs.getString("key_background_style", "dark") ?: "dark"
 }
 
 fun setSelectedKeyBackgroundStyle(context: Context, styleId: String) {
-    val prefs = context.getSharedPreferences("neoboard_settings", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
     prefs.edit().putString("key_background_style", styleId).apply()
     
     // Log the style change for debugging
@@ -2606,8 +2699,8 @@ fun SetupTabContent(
         // Setup Steps
         EnhancedSetupStepCard(
             stepNumber = 1,
-            title = "Enable NeoBoard Keyboard",
-            description = "Add NeoBoard to your device's enabled keyboards",
+            title = "Enable SendRight Keyboard",
+            description = "Add SendRight to your device's enabled keyboards",
             isCompleted = isKeyboardEnabled,
             action = {
                 ModernActionButton(
@@ -2627,8 +2720,8 @@ fun SetupTabContent(
         
         EnhancedSetupStepCard(
             stepNumber = 2,
-            title = "Select NeoBoard as Default",
-            description = "Choose NeoBoard as your active keyboard",
+            title = "Select SendRight as Default",
+            description = "Choose SendRight as your active keyboard",
             isCompleted = isKeyboardSelected,
             action = {
                 ModernActionButton(
@@ -2724,6 +2817,173 @@ fun SettingsTabContent(context: Context) {
         
         // Additional Settings
         AdditionalSettingsCard()
+    }
+}
+
+@Composable
+fun EnableScreensTabContent(context: Context) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Header Section
+        Text(
+            text = "SendRight Visual Setup",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = colorResource(R.color.keywise_text_primary),
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        Text(
+            text = "Beautiful green-themed setup experience with 3D toggle switches and modern design.",
+            fontSize = 16.sp,
+            color = colorResource(R.color.keywise_text_secondary),
+            lineHeight = 24.sp
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Launch Enable Screens Button
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = colorResource(R.color.keywise_card_background)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.TouchApp,
+                        contentDescription = null,
+                        tint = colorResource(R.color.keywise_primary),
+                        modifier = Modifier.size(32.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.width(16.dp))
+                    
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Visual Setup Experience",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colorResource(R.color.keywise_text_primary)
+                        )
+                        
+                        Text(
+                            text = "Modern step-by-step guide with animations",
+                            fontSize = 14.sp,
+                            color = colorResource(R.color.keywise_text_secondary)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = {
+                        val intent = Intent(context, com.vishruth.key1.ui.enable.EnableScreensActivity::class.java)
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(R.color.keywise_primary)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Launch Visual Setup",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+        
+        // Feature Preview Cards
+        EnableScreensFeaturePreview()
+    }
+}
+
+@Composable
+fun EnableScreensFeaturePreview() {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "What's New in Visual Setup",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = colorResource(R.color.keywise_text_primary),
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        
+        // Feature cards
+        val features = listOf(
+            Triple("Interactive Animations", "Smooth transitions and visual feedback", Icons.Default.Animation),
+            Triple("Toggle Illustrations", "Clear visual indicators for each step", Icons.Default.ToggleOn),
+            Triple("Modern Design", "Updated UI with improved accessibility", Icons.Default.Palette),
+            Triple("Step Progress", "Clear indication of setup progress", Icons.Default.Timeline)
+        )
+        
+        features.forEach { (title, description, icon) ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorResource(R.color.keywise_card_background)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = colorResource(R.color.keywise_primary),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    Column {
+                        Text(
+                            text = title,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = colorResource(R.color.keywise_text_primary)
+                        )
+                        
+                        Text(
+                            text = description,
+                            fontSize = 14.sp,
+                            color = colorResource(R.color.keywise_text_secondary)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -2980,11 +3240,138 @@ fun ChatTabContent() {
     }
 }
 
+/**
+ * Onboarding Enable Screens - Step-by-step onboarding flow
+ * Shows Enable → Select → Complete sequence as onboarding screens
+ * Acts as a wall until keyboard setup is fully completed
+ */
+@Composable
+fun EnableScreensOnboarding() {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    
+    // Real-time keyboard status tracking
+    val isKeyboardEnabled = remember { 
+        mutableStateOf(isKeyboardEnabled(context))
+    }
+    
+    val isKeyboardSelected = remember {
+        mutableStateOf(isKeyboardSelected(context))
+    }
+    
+    // Current onboarding screen state - Always start with ENABLE_KEYBOARD for onboarding
+    var currentScreen by remember { 
+        mutableStateOf(OnboardingScreen.ENABLE_KEYBOARD)
+    }
+    
+    // Function to refresh status and auto-advance screens
+    val refreshStatus = {
+        isKeyboardEnabled.value = isKeyboardEnabled(context)
+        isKeyboardSelected.value = isKeyboardSelected(context)
+        
+        // Auto-advance based on completion
+        if (isKeyboardEnabled.value && isKeyboardSelected.value && currentScreen != OnboardingScreen.SETUP_COMPLETE) {
+            currentScreen = OnboardingScreen.SETUP_COMPLETE
+            // Auto-navigate to main app after 2 seconds
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                kotlinx.coroutines.delay(2000)
+                navigateToMainApp(context)
+            }
+        }
+    }
+    
+    // Lifecycle observer for when user returns from settings
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshStatus()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    
+    // Periodic status check for real-time updates
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            refreshStatus()
+        }
+    }
+    
+    // Render current onboarding screen
+    when (currentScreen) {
+        OnboardingScreen.ENABLE_KEYBOARD -> {
+            EnableKeyboardScreen(
+                onEnableClick = {
+                    val intent = Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
+                    context.startActivity(intent)
+                    // Move to next screen after opening settings
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                        kotlinx.coroutines.delay(500)
+                        currentScreen = OnboardingScreen.SELECT_KEYBOARD
+                        refreshStatus()
+                    }
+                },
+                onSkipClick = {
+                    // Move to next screen anyway (onboarding progression)
+                    currentScreen = OnboardingScreen.SELECT_KEYBOARD
+                }
+            )
+        }
+        
+        OnboardingScreen.SELECT_KEYBOARD -> {
+            SelectKeyboardScreen(
+                onSelectClick = {
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showInputMethodPicker()
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                        kotlinx.coroutines.delay(500)
+                        refreshStatus()
+                    }
+                },
+                onSkipClick = {
+                    // Move to completion screen anyway (onboarding progression)
+                    currentScreen = OnboardingScreen.SETUP_COMPLETE
+                }
+            )
+        }
+        
+        OnboardingScreen.SETUP_COMPLETE -> {
+            SetupCompleteScreen(
+                onContinueClick = {
+                    navigateToMainApp(context)
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Onboarding Screen Enum for step-by-step progression
+ */
+enum class OnboardingScreen {
+    ENABLE_KEYBOARD,
+    SELECT_KEYBOARD,
+    SETUP_COMPLETE
+}
+
+/**
+ * Navigate to main app after onboarding completion
+ */
+fun navigateToMainApp(context: Context) {
+    if (context is ComponentActivity) {
+        context.recreate() // Recreate activity to trigger onCreate with new setup status
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
-fun NeoBoardSetupScreenPreview() {
+fun SendRightSetupScreenPreview() {
     Key1Theme {
-        NeoBoardSetupScreen()
+        SendRightSetupScreen()
     }
 }
 
@@ -2992,6 +3379,6 @@ fun NeoBoardSetupScreenPreview() {
 @Composable
 fun DefaultPreview() {
     Key1Theme {
-        NeoBoardSetupScreen()
+        SendRightSetupScreen()
     }
 }

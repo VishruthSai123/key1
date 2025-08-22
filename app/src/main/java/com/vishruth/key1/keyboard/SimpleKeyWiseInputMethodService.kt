@@ -122,7 +122,7 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
         audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         
         // Initialize theme support
-        sharedPreferences = getSharedPreferences("neoboard_settings", Context.MODE_PRIVATE)
+        sharedPreferences = getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
         loadCurrentTheme()
         loadCurrentKeyBackgroundStyle()
         

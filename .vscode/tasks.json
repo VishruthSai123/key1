@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build NeoBoard with Enable Screens",
+			"type": "shell",
+			"command": "./gradlew assembleDebug",
+			"isBackground": false,
+			"problemMatcher": [
+				"$java"
+			],
+			"group": "build"
+		}
+	]
+}

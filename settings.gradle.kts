@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "key1"
+rootProject.name = "SendRight"
 include(":app")
  

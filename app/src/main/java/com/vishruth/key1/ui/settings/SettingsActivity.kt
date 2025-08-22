@@ -62,7 +62,7 @@ fun SettingsScreen(
     ) {
         // Top App Bar
         TopAppBar(
-            title = { Text("NeoBoard Settings") },
+            title = { Text("SendRight Settings") },
             navigationIcon = {
                 IconButton(onClick = onBackPressed) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -141,7 +141,7 @@ fun SettingsScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "About NeoBoard AI",
+                        text = "About SendRight AI",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )

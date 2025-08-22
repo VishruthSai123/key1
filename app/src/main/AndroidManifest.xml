@@ -36,7 +36,14 @@
         <activity
             android:name=".ui.settings.SettingsActivity"
             android:exported="false"
-            android:label="NeoBoard Settings"
+            android:label="SendRight Settings"
+            android:theme="@style/Theme.Key1" />
+
+        <!-- Enable Screens Activity - New visual setup flow -->
+        <activity
+            android:name=".ui.enable.EnableScreensActivity"
+            android:exported="false"
+            android:label="SendRight Setup Guide"
             android:theme="@style/Theme.Key1" />
 
         <!-- KeyWise AI Input Method Service -->
