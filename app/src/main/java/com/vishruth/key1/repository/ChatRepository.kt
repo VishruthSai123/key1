@@ -71,7 +71,7 @@ class ChatRepository(private val context: Context) {
             title = generateConversationTitle(),
             messages = listOf(
                 ChatMessage(
-                    content = "Welcome to Neonix AI! 🚀 I'm your intelligent assistant ready to help with any questions or tasks. I maintain conversation context and can assist with writing, teaching, clarifying, and much more. What can I help you with today?",
+                    content = "Hello! I'm ready to help with any questions or tasks you have. What can I assist you with today?",
                     isFromUser = false,
                     messageType = MessageType.SYSTEM
                 )

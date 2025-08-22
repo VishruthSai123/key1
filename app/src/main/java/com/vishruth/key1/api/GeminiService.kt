@@ -109,11 +109,11 @@ class GeminiService {
                             
                             val model = createModelWithName(modelName, apiKey, isNormalMode)
                             
-                            // Create a more direct prompt that discourages prefixes
+                            // Create a direct prompt without imposing identity
                             val directPrompt = if (isNormalMode) {
                                 """$prompt
 
-Input: $inputText
+User Input: $inputText
 
 CRITICAL OUTPUT REQUIREMENTS:
 - Output ONLY the converted/processed text
@@ -127,7 +127,7 @@ CRITICAL OUTPUT REQUIREMENTS:
                             } else {
                                 """$prompt
 
-Input: $inputText
+User Input: $inputText
 
 CRITICAL OUTPUT REQUIREMENTS:
 - Output ONLY the converted/processed text

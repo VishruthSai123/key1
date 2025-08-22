@@ -5,8 +5,8 @@ import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
-import com.vishruth.key1.service.GeminiService
-import com.vishruth.key1.service.GPT5Service
+import com.vishruth.key1.api.GeminiService
+import com.vishruth.key1.api.GPT5Service
 import com.vishruth.key1.data.AIAction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

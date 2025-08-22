@@ -93,7 +93,6 @@ import androidx.compose.material3.Divider
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.material.icons.Icons as MaterialIcons
 import androidx.compose.material.icons.filled.*
 import java.text.SimpleDateFormat
@@ -1395,7 +1394,7 @@ fun AIModelSelectionCard(context: Context) {
                         color = colorResource(R.color.keywise_text_primary)
                     )
                     Text(
-                        text = "Choose between ChatGPT-5 and Gemini",
+                        text = "Toggle to switch between ChatGPT-5 and Gemini for AI actions & chat",
                         fontSize = dimensionResource(R.dimen.body_font_size).value.sp,
                         color = colorResource(R.color.keywise_text_secondary)
                     )
@@ -1432,7 +1431,7 @@ fun AIModelSelectionCard(context: Context) {
                         
                         // Show toast to inform user about the change
                         val modelName = if (enabled) "ChatGPT-5" else "Gemini"
-                        Toast.makeText(context, "Switched to $modelName AI model", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Switched to $modelName for AI actions & chat", Toast.LENGTH_SHORT).show()
                     },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
@@ -1475,9 +1474,9 @@ fun AIModelSelectionCard(context: Context) {
                     
                     Text(
                         text = if (isGPT5Enabled.value) 
-                            "Using latest ChatGPT-5 model for enhanced AI capabilities"
+                            "Using latest ChatGPT-5 model for enhanced AI actions & chat capabilities"
                         else 
-                            "Using Google Gemini for fast and reliable AI responses",
+                            "Using Google Gemini for fast and reliable AI actions & chat responses",
                         fontSize = 13.sp,
                         color = colorResource(R.color.keywise_text_primary),
                         lineHeight = 18.sp

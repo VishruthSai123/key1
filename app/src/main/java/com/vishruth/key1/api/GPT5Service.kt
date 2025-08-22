@@ -66,7 +66,7 @@ class GPT5Service {
             try {
                 Log.d(TAG, "Generating simple chat response with ChatGPT-5")
                 
-                val systemMessage = "You are a helpful AI assistant. Respond directly to the user's message without any prefixes or explanations."
+                val systemMessage = ""
                 val response = makeAPIRequest(systemMessage, message)
                 
                 if (response.isNotBlank()) {
@@ -127,10 +127,13 @@ CRITICAL OUTPUT REQUIREMENTS:
                 val requestBody = JSONObject().apply {
                     put("model", MODEL_NAME)
                     put("messages", JSONArray().apply {
-                        put(JSONObject().apply {
-                            put("role", "system")
-                            put("content", systemMessage)
-                        })
+                        // Only add system message if it's not empty
+                        if (systemMessage.isNotBlank()) {
+                            put(JSONObject().apply {
+                                put("role", "system")
+                                put("content", systemMessage)
+                            })
+                        }
                         put(JSONObject().apply {
                             put("role", "user")
                             put("content", userMessage)

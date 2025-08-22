@@ -1286,7 +1286,7 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
             keyboardScope.launch {
                 try {
                     Log.d("SimpleKeyWise", "Starting AI action...")
-                    val result = repository.executeAIAction(action, textToProcess)
+                    val result = repository.executeAIAction(action, textToProcess, true)
                     result.onSuccess { processedText ->
                         Log.d("SimpleKeyWise", "AI action successful: $processedText")
                         showAIResult(processedText, shouldReplace, textToProcess)
