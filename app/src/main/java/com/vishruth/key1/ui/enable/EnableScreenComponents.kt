@@ -120,7 +120,7 @@ fun EnableKeyboardScreen(
                     .height(56.dp)
                     .scale(animationScale),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF4CAF50) // Bright green matching screenshot
+                    containerColor = Color.White // White background
                 ),
                 shape = RoundedCornerShape(28.dp)
             ) {
@@ -128,7 +128,7 @@ fun EnableKeyboardScreen(
                     text = "Open Settings",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = Color(0xFF4CAF50)
                 )
             }
             
@@ -230,7 +230,7 @@ fun SelectKeyboardScreen(
                     .height(56.dp)
                     .scale(animationScale),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF4CAF50) // Bright green matching screenshot
+                    containerColor = Color.White // White background
                 ),
                 shape = RoundedCornerShape(28.dp)
             ) {
@@ -238,7 +238,7 @@ fun SelectKeyboardScreen(
                     text = "Choose Keyboard",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = Color(0xFF4CAF50)
                 )
             }
             
@@ -337,7 +337,7 @@ fun SetupCompleteScreen(
                     .height(56.dp)
                     .scale(animationScale),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF4CAF50) // Bright green
+                    containerColor = Color.White // White background
                 ),
                 shape = RoundedCornerShape(28.dp)
             ) {
@@ -345,7 +345,7 @@ fun SetupCompleteScreen(
                     text = "Continue to App",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = Color(0xFF4CAF50)
                 )
             }
         }

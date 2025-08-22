@@ -9,8 +9,8 @@
     <color name="white">#FFFFFFFF</color>
     
     <!-- SendRight Modern Colors -->
-    <color name="keywise_primary">#FF007AFF</color>
-    <color name="keywise_primary_dark">#FF0056CC</color>
+    <color name="keywise_primary">#FF4CAF50</color>
+    <color name="keywise_primary_dark">#FF388E3C</color>
     <color name="keywise_success">#FF28A745</color>
     <color name="keywise_success_light">#FFE8F5E8</color>
     <color name="keywise_background">#FFF8F9FA</color>
@@ -18,7 +18,7 @@
     <color name="keywise_text_primary">#FF1A1A1A</color>
     <color name="keywise_text_secondary">#FF6C757D</color>
     <color name="keywise_border">#FFE9ECEF</color>
-    <color name="keywise_accent">#FFFF6B35</color>
-    <color name="keywise_gradient_start">#FF667EEA</color>
-    <color name="keywise_gradient_end">#FF764BA2</color>
+    <color name="keywise_accent">#FF66BB6A</color>
+    <color name="keywise_gradient_start">#FF4CAF50</color>
+    <color name="keywise_gradient_end">#FF81C784</color>
 </resources>

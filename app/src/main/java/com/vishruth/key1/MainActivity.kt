@@ -57,6 +57,7 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -131,7 +132,7 @@ class MainActivity : ComponentActivity() {
                         EnableScreensOnboarding()
                     } else {
                         // Show main app if keyboard is setup or chat requested
-                        SendRightSetupScreen(initialTab = if (openChat) AppTab.CHAT else AppTab.ENABLE_SCREENS) { tab ->
+                        SendRightSetupScreen(initialTab = if (openChat) AppTab.CHAT else AppTab.HOME) { tab ->
                             selectedTab = tab
                         }
                     }
@@ -154,16 +155,14 @@ class MainActivity : ComponentActivity() {
 
 // Tab definitions - Main app sections
 enum class AppTab(val title: String, val icon: ImageVector) {
-    ENABLE_SCREENS("Setup", Icons.Default.TouchApp), // Setup screens (Enable + Select)
-    FEATURES("Features", Icons.Default.AutoAwesome),
-    LOGIC("How It Works", Icons.Default.Psychology),
-    SETTINGS("Settings", Icons.Default.Tune),
-    CHAT("Chat", Icons.Default.Chat)
+    HOME("Home", Icons.Default.Home),
+    CHAT("Chat", Icons.Default.Chat),
+    SETTINGS("Settings", Icons.Default.Settings)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SendRightSetupScreen(initialTab: AppTab = AppTab.ENABLE_SCREENS, onTabSelected: ((MutableState<AppTab>) -> Unit)? = null) {
+fun SendRightSetupScreen(initialTab: AppTab = AppTab.HOME, onTabSelected: ((MutableState<AppTab>) -> Unit)? = null) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val aiRepository = remember { AIRepository(context) }
@@ -175,11 +174,7 @@ fun SendRightSetupScreen(initialTab: AppTab = AppTab.ENABLE_SCREENS, onTabSelect
     LaunchedEffect(selectedTab) {
         onTabSelected?.invoke(selectedTab)
     }
-    
-    // Drawer state
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
-    
+
     val isKeyboardEnabled = remember { 
         mutableStateOf(isKeyboardEnabled(context))
     }
@@ -191,6 +186,17 @@ fun SendRightSetupScreen(initialTab: AppTab = AppTab.ENABLE_SCREENS, onTabSelect
     // Track restart status
     val hasRestartedAfterSetup = remember {
         mutableStateOf(hasUserRestartedAfterSetup(context))
+    }
+    
+    // Track if restart popup has been shown for first-time completion
+    val showRestartPopup = remember { mutableStateOf(false) }
+    val hasShownPopup = remember { mutableStateOf(getHasShownRestartPopup(context)) }
+    
+    // Check if setup just completed and popup hasn't been shown yet
+    LaunchedEffect(isKeyboardEnabled.value, isKeyboardSelected.value, hasShownPopup.value) {
+        if (isKeyboardEnabled.value && isKeyboardSelected.value && !hasShownPopup.value) {
+            showRestartPopup.value = true
+        }
     }
     
     // Function to refresh status
@@ -221,43 +227,52 @@ fun SendRightSetupScreen(initialTab: AppTab = AppTab.ENABLE_SCREENS, onTabSelect
         }
     }
     
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            DrawerContent(
-                selectedTab = selectedTab.value,
-                onTabSelected = { tab ->
-                    selectedTab.value = tab
-                    scope.launch {
-                        drawerState.close()
-                    }
-                }
-            )
-        },
-        content = {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // Header with Menu Button
-                AppHeader(
-                    onMenuClick = {
-                        scope.launch {
-                            drawerState.open()
-                        }
-                    }
-                )
-                
-                // Main Content
-                when (selectedTab.value) {
-                    AppTab.ENABLE_SCREENS -> EnableScreensTabContent(context = context) // Primary enable screens tab
-                    AppTab.FEATURES -> FeaturesTabContent()
-                    AppTab.LOGIC -> LogicTabContent()
-                    AppTab.SETTINGS -> SettingsTabContent(context)
-                    AppTab.CHAT -> ChatTabContent()
-                }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colorResource(R.color.keywise_background)) // Add proper background
+    ) {
+        // Header
+        AppHeader()
+        
+        // Main Content (takes remaining space above bottom navigation)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .background(colorResource(R.color.keywise_background)) // Add background to content area
+        ) {
+            when (selectedTab.value) {
+                AppTab.HOME -> HomeTabContent()
+                AppTab.CHAT -> ChatTabContent()
+                AppTab.SETTINGS -> SettingsTabContent(context)
             }
         }
-    )
+        
+        // Bottom Navigation
+        BottomNavigationBar(
+            selectedTab = selectedTab.value,
+            onTabSelected = { tab ->
+                selectedTab.value = tab
+            }
+        )
+    }
+    
+    // First-time setup completion popup
+    if (showRestartPopup.value) {
+        RestartRecommendationDialog(
+            onDismiss = {
+                showRestartPopup.value = false
+                setHasShownRestartPopup(context, true)
+                hasShownPopup.value = true
+            },
+            onRestart = {
+                showRestartPopup.value = false
+                setHasShownRestartPopup(context, true)
+                hasShownPopup.value = true
+                // Note: Actual restart requires user action through power menu
+            }
+        )
+    }
 }
 
 // Custom SVG Menu Icon
@@ -305,7 +320,7 @@ fun CustomMenuIcon() {
 }
 
 @Composable
-fun AppHeader(onMenuClick: () -> Unit) {
+fun AppHeader() {
     val context = LocalContext.current
     
     // Load logo bitmap - moved outside composable scope
@@ -357,7 +372,7 @@ fun AppHeader(onMenuClick: () -> Unit) {
                             modifier = Modifier
                                 .size(32.dp)
                                 .background(
-                                    Color.White.copy(alpha = 0.2f),
+                                    Color.Gray.copy(alpha = 0.2f), // Changed to gray for light theme
                                     RoundedCornerShape(8.dp)
                                 ),
                             contentAlignment = Alignment.Center
@@ -380,142 +395,81 @@ fun AppHeader(onMenuClick: () -> Unit) {
                     )
                 }
                 
-                // Right side - Custom Menu button
-                IconButton(
-                    onClick = onMenuClick,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    CustomMenuIcon()
-                }
+                // Right side - Empty space (menu removed)
+                Spacer(modifier = Modifier.width(48.dp))
             }
         }
     }
 }
 
 @Composable
-fun DrawerContent(
+fun BottomNavigationBar(
     selectedTab: AppTab,
     onTabSelected: (AppTab) -> Unit
 ) {
-    ModalDrawerSheet(
-        modifier = Modifier.width(280.dp),
-        drawerContainerColor = colorResource(R.color.keywise_card_background)
+    NavigationBar(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = colorResource(R.color.keywise_card_background),
+        tonalElevation = 8.dp
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            // Drawer Header
-            DrawerHeader()
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Navigation Items
-            AppTab.values().forEach { tab ->
-                DrawerMenuItem(
-                    tab = tab,
-                    isSelected = selectedTab == tab,
-                    onClick = { onTabSelected(tab) }
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = "Home",
+                    modifier = Modifier.size(24.dp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            
-            Spacer(modifier = Modifier.weight(1f))
-            
-            // Footer
-            DrawerFooter()
-        }
-    }
-}
-
-@Composable
-fun DrawerHeader() {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "SendRight",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = colorResource(R.color.keywise_text_primary)
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = "Powered by Neonix AI",
-            fontSize = 14.sp,
-            color = colorResource(R.color.keywise_text_secondary)
-        )
-    }
-}
-
-@Composable
-fun DrawerMenuItem(
-    tab: AppTab,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .background(
-                color = if (isSelected) 
-                    colorResource(R.color.keywise_primary) 
-                else 
-                    Color.Transparent,
-                shape = RoundedCornerShape(12.dp)
+            },
+            label = { Text("Home") },
+            selected = selectedTab == AppTab.HOME,
+            onClick = { onTabSelected(AppTab.HOME) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = colorResource(R.color.keywise_primary),
+                selectedTextColor = colorResource(R.color.keywise_primary),
+                indicatorColor = colorResource(R.color.keywise_primary).copy(alpha = 0.1f),
+                unselectedIconColor = colorResource(R.color.keywise_text_secondary),
+                unselectedTextColor = colorResource(R.color.keywise_text_secondary)
             )
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = tab.icon,
-                contentDescription = tab.title,
-                tint = if (isSelected) Color.White else colorResource(R.color.keywise_text_primary),
-                modifier = Modifier.size(24.dp)
-            )
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Text(
-                text = tab.title,
-                fontSize = 16.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) Color.White else colorResource(R.color.keywise_text_primary)
-            )
-        }
-    }
-}
-
-@Composable
-fun DrawerFooter() {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        HorizontalDivider(
-            color = colorResource(R.color.keywise_border),
-            thickness = 1.dp,
-            modifier = Modifier.padding(vertical = 16.dp)
         )
         
-        Text(
-            text = "Version 1.6",
-            fontSize = 12.sp,
-            color = colorResource(R.color.keywise_text_secondary)
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Chat,
+                    contentDescription = "Chat",
+                    modifier = Modifier.size(24.dp)
+                )
+            },
+            label = { Text("Chat") },
+            selected = selectedTab == AppTab.CHAT,
+            onClick = { onTabSelected(AppTab.CHAT) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = colorResource(R.color.keywise_primary),
+                selectedTextColor = colorResource(R.color.keywise_primary),
+                indicatorColor = colorResource(R.color.keywise_primary).copy(alpha = 0.1f),
+                unselectedIconColor = colorResource(R.color.keywise_text_secondary),
+                unselectedTextColor = colorResource(R.color.keywise_text_secondary)
+            )
         )
         
-        Text(
-            text = "© 2024 Neonix AI",
-            fontSize = 12.sp,
-            color = colorResource(R.color.keywise_text_secondary)
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    modifier = Modifier.size(24.dp)
+                )
+            },
+            label = { Text("Settings") },
+            selected = selectedTab == AppTab.SETTINGS,
+            onClick = { onTabSelected(AppTab.SETTINGS) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = colorResource(R.color.keywise_primary),
+                selectedTextColor = colorResource(R.color.keywise_primary),
+                indicatorColor = colorResource(R.color.keywise_primary).copy(alpha = 0.1f),
+                unselectedIconColor = colorResource(R.color.keywise_text_secondary),
+                unselectedTextColor = colorResource(R.color.keywise_text_secondary)
+            )
         )
     }
 }
@@ -577,7 +531,7 @@ fun ChatMessageBubble(message: ChatMessage) {
                 ) {
                     Text(
                         text = "Long press to copy",
-                        color = Color.White.copy(alpha = 0.4f),
+                        color = Color.Gray.copy(alpha = 0.6f), // Changed to gray for light theme
                         fontSize = 10.sp,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                     )
@@ -593,7 +547,7 @@ fun ChatMessageBubble(message: ChatMessage) {
                         Icon(
                             imageVector = MaterialIcons.Default.ContentCopy,
                             contentDescription = "Copy message",
-                            tint = Color.White.copy(alpha = 0.6f),
+                            tint = Color.Gray.copy(alpha = 0.7f), // Changed to gray for light theme
                             modifier = Modifier.size(12.dp)
                         )
                     }
@@ -632,7 +586,7 @@ fun EnhancedChatMessageBubble(message: ChatMessage) {
                         else -> Color(0xFF3A3A3C)
                     }
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // Remove gray border
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -681,14 +635,14 @@ fun EnhancedChatMessageBubble(message: ChatMessage) {
             ),
             colors = CardDefaults.cardColors(
                 containerColor = when {
-                    message.isFromUser -> Color(0xFF007AFF) // Blue for user messages (right side)
-                    message.messageType == MessageType.SUMMARY -> Color(0xFF2C3E50)
-                    message.messageType == MessageType.SYSTEM -> Color(0xFF1A1A1C)
-                    else -> Color(0xFF2C2C2E) // Clean dark background for AI (left side)
+                    message.isFromUser -> Color.Gray.copy(alpha = 0.2f) // Improved transparent light gray for user messages
+                    message.messageType == MessageType.SUMMARY -> colorResource(R.color.keywise_primary).copy(alpha = 0.15f) // Light green for summaries
+                    message.messageType == MessageType.SYSTEM -> Color(0xFFFF9800).copy(alpha = 0.15f) // Light orange for system
+                    else -> Color.Gray.copy(alpha = 0.12f) // Improved transparent light gray for AI messages
                 }
             ),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = if (message.isFromUser) 8.dp else 2.dp // Higher elevation for user messages
+                defaultElevation = 0.dp // Remove gray border by eliminating elevation
             )
         ) {
             Column(
@@ -725,7 +679,7 @@ fun EnhancedChatMessageBubble(message: ChatMessage) {
                 
                 Text(
                     text = message.content,
-                    color = Color.White,
+                    color = Color.Black, // Changed to black for better readability
                     fontSize = 15.sp,
                     lineHeight = 22.sp,
                     fontWeight = when {
@@ -748,7 +702,7 @@ fun EnhancedChatMessageBubble(message: ChatMessage) {
                     if (!message.isFromUser && message.messageType == MessageType.TEXT) {
                         Text(
                             text = "AI",
-                            color = Color.White.copy(alpha = 0.4f),
+                            color = Color.Gray, // Changed to gray for better contrast
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -758,7 +712,7 @@ fun EnhancedChatMessageBubble(message: ChatMessage) {
                     if (message.isFromUser) {
                         Text(
                             text = "You",
-                            color = Color.White.copy(alpha = 0.4f),
+                            color = Color.Gray.copy(alpha = 0.6f), // Changed to gray for light theme
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -768,7 +722,7 @@ fun EnhancedChatMessageBubble(message: ChatMessage) {
                     Text(
                         text = SimpleDateFormat("HH:mm", Locale.getDefault())
                             .format(Date(message.timestamp)),
-                        color = Color.White.copy(alpha = 0.5f),
+                        color = Color.Gray.copy(alpha = 0.7f), // Changed to gray for light theme
                         fontSize = 11.sp
                     )
                 }
@@ -836,7 +790,7 @@ fun ChatLoadingBubble() {
                         modifier = Modifier
                             .size(10.dp)
                             .background(
-                                Color.White.copy(alpha = alpha),
+                                Color.Gray.copy(alpha = alpha), // Changed to gray for light theme
                                 CircleShape
                             )
                     )
@@ -861,9 +815,9 @@ fun ChatInputArea(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1C1C1E) // More minimalistic dark background
+            containerColor = Color.White // Changed to white to match main background
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column {
             // Extra actions row (minimalistic)
@@ -879,9 +833,9 @@ fun ChatInputArea(
                         onClick = onNewChat,
                         modifier = Modifier.height(36.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color.White.copy(alpha = 0.8f)
+                            contentColor = Color.Gray // Changed to gray for white background
                         ),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                        border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)), // Changed border color
                         shape = RoundedCornerShape(18.dp)
                     ) {
                         Icon(
@@ -902,9 +856,9 @@ fun ChatInputArea(
                         onClick = onSummarize,
                         modifier = Modifier.height(36.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color.White.copy(alpha = 0.8f)
+                            contentColor = Color.Gray // Changed to gray for white background
                         ),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                        border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)), // Changed border color
                         shape = RoundedCornerShape(18.dp)
                     ) {
                         Icon(
@@ -928,22 +882,27 @@ fun ChatInputArea(
                 )
             }
             
-            // Main input area
+            // Main input area with improved styling
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .background(
+                    Color.White, // Clean white background
+                    RoundedCornerShape(28.dp)
+                )
+                .padding(6.dp), // Inner padding for the background
             verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Enhanced text input with minimalistic design
                 Card(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF2C2C2E) // Subtle background
+                        containerColor = Color.White // White background as requested
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             OutlinedTextField(
                 value = message,
@@ -954,19 +913,19 @@ fun ChatInputArea(
                 placeholder = {
                     Text(
                                 "Message...",
-                                color = Color.White.copy(alpha = 0.5f),
+                                color = Color.Black.copy(alpha = 0.6f), // Black placeholder text as requested
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Normal
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
+                    focusedTextColor = Color.Black, // Black text for contrast
+                    unfocusedTextColor = Color.Black, // Black text for contrast
+                            focusedBorderColor = Color.Black.copy(alpha = 0.8f), // Black outline as requested
+                            unfocusedBorderColor = Color.Black.copy(alpha = 0.5f), // Black outline when unfocused
                     cursorColor = colorResource(R.color.keywise_gradient_start),
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
+                    focusedContainerColor = Color.White, // White background
+                    unfocusedContainerColor = Color.White // White background
                 ),
                 keyboardOptions = KeyboardOptions(
                             imeAction = ImeAction.Send,
@@ -998,17 +957,17 @@ fun ChatInputArea(
                     )
                 } else {
                         Card(
-                            modifier = Modifier.size(44.dp),
+                            modifier = Modifier.size(48.dp), // Slightly larger for better touch target
                             shape = CircleShape,
                             colors = CardDefaults.cardColors(
                                 containerColor = if (message.trim().isNotEmpty()) {
-                                    colorResource(R.color.keywise_gradient_start)
+                                    colorResource(R.color.keywise_primary) // Use primary green color
                                 } else {
-                                    Color.Gray.copy(alpha = 0.4f)
+                                    Color.Gray.copy(alpha = 0.3f) // Lighter disabled state
                                 }
                             ),
                             elevation = CardDefaults.cardElevation(
-                                defaultElevation = if (message.trim().isNotEmpty()) 8.dp else 2.dp
+                                defaultElevation = 0.dp // Remove gray border by eliminating elevation
                             )
                         ) {
                             Box(
@@ -1018,9 +977,9 @@ fun ChatInputArea(
                     Icon(
                                     imageVector = MaterialIcons.Default.Send,
                         contentDescription = "Send",
-                        tint = Color.White,
+                        tint = if (message.trim().isNotEmpty()) Color.White else Color.Gray, // Dynamic icon color
                                     modifier = Modifier
-                                        .size(20.dp)
+                                        .size(22.dp) // Slightly larger icon
                                         .clickable(
                                             enabled = message.trim().isNotEmpty() && !isLoading
                                         ) { onSendMessage() }
@@ -1286,7 +1245,7 @@ fun ModernActionButton(
             containerColor = if (isCompleted) 
                 colorResource(R.color.keywise_success) 
             else 
-                colorResource(R.color.keywise_primary)
+                Color.White
         ),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = dimensionResource(R.dimen.elevation_button))
     ) {
@@ -1298,14 +1257,14 @@ fun ModernActionButton(
                 imageVector = if (isCompleted) Icons.Default.Check else Icons.Default.ArrowForward,
                 contentDescription = null,
                 modifier = Modifier.size(dimensionResource(R.dimen.icon_size)),
-                tint = Color.White
+                tint = if (isCompleted) Color.White else Color(0xFF4CAF50)
             )
             Spacer(modifier = Modifier.width(dimensionResource(R.dimen.button_spacing)))
             Text(
                 text = text,
                 fontSize = dimensionResource(R.dimen.body_font_size).value.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.White
+                color = if (isCompleted) Color.White else Color(0xFF4CAF50)
             )
         }
     }
@@ -1333,7 +1292,7 @@ fun AIFeaturesCard() {
                 )
                 Spacer(modifier = Modifier.width(dimensionResource(R.dimen.button_spacing)))
                 Text(
-                    text = "✨ Neonix AI Features",
+                    text = "Neonix AI Features",
                     fontSize = dimensionResource(R.dimen.title_font_size).value.sp,
                     fontWeight = FontWeight.Bold,
                     color = colorResource(R.color.keywise_text_primary)
@@ -1419,11 +1378,13 @@ fun AIResponseSettingsCard(context: Context) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "⚙️",
-                    fontSize = dimensionResource(R.dimen.large_icon_size).value.sp,
-                    modifier = Modifier.padding(end = dimensionResource(R.dimen.button_spacing))
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    tint = colorResource(R.color.keywise_primary),
+                    modifier = Modifier.size(dimensionResource(R.dimen.large_icon_size))
                 )
+                Spacer(modifier = Modifier.width(dimensionResource(R.dimen.button_spacing)))
                 Text(
                     text = "AI Response Settings",
                     fontSize = dimensionResource(R.dimen.title_font_size).value.sp,
@@ -1703,7 +1664,7 @@ fun GeneralSafetyCard() {
                 )
                 Spacer(modifier = Modifier.width(dimensionResource(R.dimen.button_spacing)))
                 Text(
-                    text = "ℹ️ Safety Information",
+                    text = "Safety Information",
                     fontSize = dimensionResource(R.dimen.title_font_size).value.sp,
                     fontWeight = FontWeight.Bold,
                     color = colorResource(R.color.keywise_text_primary)
@@ -1713,11 +1674,11 @@ fun GeneralSafetyCard() {
             Spacer(modifier = Modifier.height(dimensionResource(R.dimen.feature_item_spacing)))
             
             val safetyTips = listOf(
-                "🔒 Your data stays private - SendRight processes text locally when possible",
-                "🔄 Keep your original keyboard enabled as backup",
-                "📱 Restart your device after setup for best performance", 
-                "🧪 Test in safe apps (Notes, Messages) before sensitive use",
-                "⚙️ You can disable SendRight anytime in Settings > Languages & Input"
+                "Your data stays private - SendRight processes text locally when possible",
+                "Keep your original keyboard enabled as backup",
+                "Restart your device after setup for best performance", 
+                "Test in safe apps (Notes, Messages) before sensitive use",
+                "You can disable SendRight anytime in Settings > Languages & Input"
             )
             
             safetyTips.forEach { tip ->
@@ -2006,16 +1967,16 @@ fun KeyboardThemesFeatureCard() {
             )
             
             val themes = listOf(
-                "🌊 Ocean Blue - Deep sea gradients",
-                "🌅 Sunset Orange - Warm evening colors",
-                "🌲 Forest Green - Nature-inspired tones",
-                "👑 Royal Purple - Elegant sophistication",
-                "🔥 Fire Red - Bold and energetic",
-                "🏆 Gold Amber - Luxurious metallics",
-                "💖 Cyber Pink - Modern neon vibes",
-                "❄️ Arctic Blue - Cool refreshing shades",
-                "🌌 Cosmic Purple - Space-age aesthetics",
-                "🍃 Mint Green - Fresh and vibrant"
+                "Ocean Blue - Deep sea gradients",
+                "Sunset Orange - Warm evening colors",
+                "Forest Green - Nature-inspired tones",
+                "Royal Purple - Elegant sophistication",
+                "Fire Red - Bold and energetic",
+                "Gold Amber - Luxurious metallics",
+                "Cyber Pink - Modern neon vibes",
+                "Arctic Blue - Cool refreshing shades",
+                "Cosmic Purple - Space-age aesthetics",
+                "Mint Green - Fresh and vibrant"
             )
             
             themes.take(5).forEach { theme ->
@@ -2260,11 +2221,13 @@ fun KeyboardThemeSettingsCard(context: Context) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "🎨",
-                        fontSize = dimensionResource(R.dimen.large_icon_size).value.sp,
-                        modifier = Modifier.padding(end = dimensionResource(R.dimen.button_spacing))
+                    Icon(
+                        imageVector = Icons.Default.Palette,
+                        contentDescription = null,
+                        tint = colorResource(R.color.keywise_primary),
+                        modifier = Modifier.size(dimensionResource(R.dimen.large_icon_size))
                     )
+                    Spacer(modifier = Modifier.width(dimensionResource(R.dimen.button_spacing)))
                     Text(
                         text = "Keyboard Themes",
                         fontSize = dimensionResource(R.dimen.title_font_size).value.sp,
@@ -2438,7 +2401,7 @@ fun KeyBackgroundStyleSettingsCard(context: Context) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(dimensionResource(R.dimen.card_corner_radius)),
         colors = CardDefaults.cardColors(containerColor = colorResource(R.color.keywise_card_background)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = dimensionResource(R.dimen.elevation_card))
     ) {
         Column(
             modifier = Modifier
@@ -2456,11 +2419,13 @@ fun KeyBackgroundStyleSettingsCard(context: Context) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "⌨️",
-                        fontSize = dimensionResource(R.dimen.large_icon_size).value.sp,
-                        modifier = Modifier.padding(end = dimensionResource(R.dimen.button_spacing))
+                    Icon(
+                        imageVector = Icons.Default.Keyboard,
+                        contentDescription = null,
+                        tint = colorResource(R.color.keywise_primary),
+                        modifier = Modifier.size(dimensionResource(R.dimen.large_icon_size))
                     )
+                    Spacer(modifier = Modifier.width(dimensionResource(R.dimen.button_spacing)))
                     Text(
                         text = "Key Background Style",
                         fontSize = dimensionResource(R.dimen.title_font_size).value.sp,
@@ -2652,11 +2617,11 @@ fun AdditionalSettingsCard() {
             )
             
             val futureSettings = listOf(
-                "🎨 Theme customization",
-                "🔤 Keyboard layout options",
-                "🌍 Language preferences",
-                "📊 Usage analytics",
-                "🔔 Notification settings"
+                "Theme customization",
+                "Keyboard layout options", 
+                "Language preferences",
+                "Usage analytics",
+                "Notification settings"
             )
             
             futureSettings.forEach { setting ->
@@ -2758,42 +2723,101 @@ fun SetupTabContent(
 }
 
 @Composable
-fun FeaturesTabContent() {
+fun HomeTabContent() {
+    var testText by remember { mutableStateOf("") }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .background(colorResource(R.color.keywise_background)) // Add consistent background
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // AI Features Showcase
-        AIFeaturesCard()
-        
-        // Curly Brace Instructions Feature
-        CurlyBraceInstructionsCard()
-        
-        // Keyboard Themes Feature
-        KeyboardThemesFeatureCard()
-    }
-}
-
-@Composable
-fun LogicTabContent() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // How AI Processing Works
-        AIProcessingLogicCard()
-        
-        // Curly Brace Logic
-        CurlyBraceLogicCard()
-        
-        // Response Mode Logic
-        ResponseModeLogicCard()
+        // Top section with input field
+        Column(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Test input field with black text
+            OutlinedTextField(
+                value = testText,
+                onValueChange = { testText = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                label = { Text("Test your typing here...") },
+                placeholder = { Text("Start typing to test SendRight keyboard") },
+                minLines = 3,
+                maxLines = 5,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = colorResource(R.color.keywise_primary),
+                    focusedLabelColor = colorResource(R.color.keywise_primary),
+                    cursorColor = colorResource(R.color.keywise_primary)
+                ),
+                textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black), // Black text for better contrast
+                shape = RoundedCornerShape(12.dp)
+            )
+            
+            // Grammar correction demo instruction
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorResource(R.color.keywise_success_light)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = colorResource(R.color.keywise_primary), // Green tint
+                            modifier = Modifier
+                                .size(20.dp)
+                                .padding(end = 8.dp)
+                        )
+                        Text(
+                            text = "Grammar Correction Demo",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colorResource(R.color.keywise_text_primary)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = "Try typing: \"I has a good day today\"",
+                        fontSize = 14.sp,
+                        color = colorResource(R.color.keywise_text_secondary),
+                        fontStyle = FontStyle.Italic
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Text(
+                        text = "Then hit the rewrite button and see the magic! ✨",
+                        fontSize = 14.sp,
+                        color = colorResource(R.color.keywise_primary),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            
+            // Instructions
+            Text(
+                text = "Use this area to test SendRight keyboard features like AI assistance, smart suggestions, and grammar correction!",
+                fontSize = 14.sp,
+                color = colorResource(R.color.keywise_text_secondary),
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
     }
 }
 
@@ -2802,7 +2826,8 @@ fun SettingsTabContent(context: Context) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .background(colorResource(R.color.keywise_background)) // Add proper background
+            .padding(16.dp) // Keep content padding
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -2882,7 +2907,7 @@ fun EnableScreensTabContent(context: Context) {
                         )
                         
                         Text(
-                            text = "Modern step-by-step guide with animations",
+                            text = "Modern step-by-step setup process",
                             fontSize = 14.sp,
                             color = colorResource(R.color.keywise_text_secondary)
                         )
@@ -3033,69 +3058,10 @@ fun ChatTabContent() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0A0A0B),
-                        Color(0xFF1C1C1E)
-                    )
-                )
-            )
+            .background(colorResource(R.color.keywise_background)) // Use consistent background color
     ) {
-        // Minimalistic header with conversation info
-        if (currentConversation != null && showExtraActions) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White.copy(alpha = 0.05f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = currentConversation?.title ?: "Chat",
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "${chatMessages.size} messages",
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 12.sp
-                        )
-                    }
-                    
-                    // Memory indicator
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = MaterialIcons.Default.Psychology,
-                            contentDescription = "Memory Active",
-                            tint = colorResource(R.color.keywise_gradient_start),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "Memory",
-                            color = colorResource(R.color.keywise_gradient_start),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        }
+        // Minimalistic header with conversation info - HIDDEN to save space
+        // The time-based chat memory display has been removed as requested
         
         // Chat messages list with improved spacing
         LazyColumn(
@@ -3372,6 +3338,87 @@ fun navigateToMainApp(context: Context) {
 fun SendRightSetupScreenPreview() {
     Key1Theme {
         SendRightSetupScreen()
+    }
+}
+
+// First-time restart recommendation dialog
+@Composable
+fun RestartRecommendationDialog(
+    onDismiss: () -> Unit,
+    onRestart: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            // Only restart button, no skip
+            Button(
+                onClick = onRestart,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorResource(R.color.keywise_gradient_start)
+                )
+            ) {
+                Text("Restart Later", color = Color.White)
+            }
+        },
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = colorResource(R.color.keywise_gradient_start),
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    "Setup Complete!",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "🎉 SendRight is now ready to use!",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.Black
+                )
+                
+                Text(
+                    "For optimal performance and to ensure all features work properly, we recommend restarting your device.",
+                    fontSize = 14.sp,
+                    color = Color.Black,
+                    lineHeight = 20.sp
+                )
+                
+                Text(
+                    "💡 You can restart anytime from your power menu.",
+                    fontSize = 12.sp,
+                    color = Color.Black,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                )
+            }
+        },
+        containerColor = colorResource(R.color.keywise_card_background)
+    )
+}
+
+// Helper functions for tracking restart popup
+fun getHasShownRestartPopup(context: Context): Boolean {
+    val sharedPref = context.getSharedPreferences("sendright_prefs", Context.MODE_PRIVATE)
+    return sharedPref.getBoolean("has_shown_restart_popup", false)
+}
+
+fun setHasShownRestartPopup(context: Context, hasShown: Boolean) {
+    val sharedPref = context.getSharedPreferences("sendright_prefs", Context.MODE_PRIVATE)
+    with(sharedPref.edit()) {
+        putBoolean("has_shown_restart_popup", hasShown)
+        apply()
     }
 }
 
