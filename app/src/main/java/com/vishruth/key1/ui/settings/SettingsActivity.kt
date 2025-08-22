@@ -54,8 +54,8 @@ fun SettingsScreen(
     val context = LocalContext.current
     val aiRepository = remember { AIRepository(context) }
     
-    var apiKey by remember { mutableStateOf(aiRepository.getApiKey()) }
-    var showApiKeyDialog by remember { mutableStateOf(false) }
+    var isGPT5Enabled by remember { mutableStateOf(aiRepository.isGPT5Enabled()) }
+    var showModelInfoDialog by remember { mutableStateOf(false) }
     
     Column(
         modifier = Modifier.fillMaxSize()
@@ -77,7 +77,7 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // API Key Section
+            // AI Model Selection Section
             Card(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -85,25 +85,42 @@ fun SettingsScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "OpenAI Configuration",
+                        text = "AI Model Selection",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (apiKey.isNotBlank()) "API Key configured" else "No API Key set",
+                        text = "Choose between Gemini and ChatGPT-5 for AI responses",
                         fontSize = 14.sp,
-                        color = if (apiKey.isNotBlank()) 
-                            MaterialTheme.colorScheme.primary 
-                        else 
-                            MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = { showApiKeyDialog = true },
-                        modifier = Modifier.fillMaxWidth()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(if (apiKey.isNotBlank()) "Update API Key" else "Set API Key")
+                        Column {
+                            Text(
+                                text = if (isGPT5Enabled) "ChatGPT-5" else "Gemini",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = if (isGPT5Enabled) "Fast & Creative" else "Smart & Reliable",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isGPT5Enabled,
+                            onCheckedChange = { enabled ->
+                                isGPT5Enabled = enabled
+                                aiRepository.setGPT5Enabled(enabled)
+                            }
+                        )
                     }
                 }
             }
@@ -156,16 +173,19 @@ fun SettingsScreen(
         }
     }
     
-    // API Key Dialog
-    if (showApiKeyDialog) {
-        APIKeyDialog(
-            currentApiKey = apiKey,
-            onApiKeySet = { newKey ->
-                apiKey = newKey
-                aiRepository.setApiKey(newKey)
-                showApiKeyDialog = false
+    // Model Info Dialog (if needed)
+    if (showModelInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showModelInfoDialog = false },
+            title = { Text("AI Model Information") },
+            text = { 
+                Text("Current model: ${if (isGPT5Enabled) "ChatGPT-5" else "Gemini"}\n\nYou can switch between models anytime in the main app settings.")
             },
-            onDismiss = { showApiKeyDialog = false }
+            confirmButton = {
+                TextButton(onClick = { showModelInfoDialog = false }) {
+                    Text("OK")
+                }
+            }
         )
     }
 }

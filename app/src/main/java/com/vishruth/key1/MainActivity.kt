@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -84,7 +85,6 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import android.content.ClipboardManager
 import android.content.ClipData
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.OutlinedButton
@@ -93,11 +93,11 @@ import androidx.compose.material3.Divider
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.material.icons.Icons as MaterialIcons
 import androidx.compose.material.icons.filled.*
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlinx.coroutines.delay
 import android.util.Log
 
 // Legacy chat message data class for UI compatibility
@@ -1361,6 +1361,134 @@ fun FeatureItem(
 }
 
 @Composable
+fun AIModelSelectionCard(context: Context) {
+    val isGPT5Enabled = remember { 
+        mutableStateOf(getIsGPT5Enabled(context))
+    }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(dimensionResource(R.dimen.card_corner_radius)),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.keywise_card_background)),
+        elevation = CardDefaults.cardElevation(defaultElevation = dimensionResource(R.dimen.elevation_card))
+    ) {
+        Column(
+            modifier = Modifier.padding(dimensionResource(R.dimen.card_padding))
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Psychology,
+                    contentDescription = "AI Model",
+                    tint = colorResource(R.color.keywise_primary),
+                    modifier = Modifier.size(24.dp)
+                )
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "AI Model Selection",
+                        fontSize = dimensionResource(R.dimen.title_font_size).value.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colorResource(R.color.keywise_text_primary)
+                    )
+                    Text(
+                        text = "Choose between ChatGPT-5 and Gemini",
+                        fontSize = dimensionResource(R.dimen.body_font_size).value.sp,
+                        color = colorResource(R.color.keywise_text_secondary)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Model selection toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = if (isGPT5Enabled.value) "ChatGPT-5 (AI/ML API)" else "Gemini (Google AI)",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = colorResource(R.color.keywise_text_primary)
+                    )
+                    Text(
+                        text = if (isGPT5Enabled.value) "Advanced reasoning & latest features" else "Fast & reliable responses",
+                        fontSize = 14.sp,
+                        color = colorResource(R.color.keywise_text_secondary)
+                    )
+                }
+                
+                Switch(
+                    checked = isGPT5Enabled.value,
+                    onCheckedChange = { enabled ->
+                        isGPT5Enabled.value = enabled
+                        setIsGPT5Enabled(context, enabled)
+                        
+                        // Show toast to inform user about the change
+                        val modelName = if (enabled) "ChatGPT-5" else "Gemini"
+                        Toast.makeText(context, "Switched to $modelName AI model", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = colorResource(R.color.keywise_primary),
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = Color.Gray.copy(alpha = 0.5f)
+                    )
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Model information card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isGPT5Enabled.value) 
+                        colorResource(R.color.keywise_primary).copy(alpha = 0.1f)
+                    else 
+                        Color.Blue.copy(alpha = 0.1f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (isGPT5Enabled.value) Icons.Default.Star else Icons.Default.Speed,
+                        contentDescription = null,
+                        tint = if (isGPT5Enabled.value) 
+                            colorResource(R.color.keywise_primary)
+                        else 
+                            Color.Blue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Text(
+                        text = if (isGPT5Enabled.value) 
+                            "Using latest ChatGPT-5 model for enhanced AI capabilities"
+                        else 
+                            "Using Google Gemini for fast and reliable AI responses",
+                        fontSize = 13.sp,
+                        color = colorResource(R.color.keywise_text_primary),
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun AIResponseSettingsCard(context: Context) {
     val responseMode = remember { 
         mutableStateOf(getResponseMode(context))
@@ -1837,6 +1965,18 @@ fun getResponseMode(context: Context): ResponseMode {
 fun setResponseMode(context: Context, mode: ResponseMode) {
     val prefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
     prefs.edit().putString("response_mode", mode.value).apply()
+}
+
+// GPT-5 Model Selection Functions
+fun getIsGPT5Enabled(context: Context): Boolean {
+    val prefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
+    return prefs.getBoolean("is_gpt5_enabled", false) // Default to Gemini (false)
+}
+
+fun setIsGPT5Enabled(context: Context, enabled: Boolean) {
+    val prefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
+    prefs.edit().putBoolean("is_gpt5_enabled", enabled).apply()
+    android.util.Log.d("AIModelSelection", "AI model changed to: ${if (enabled) "ChatGPT-5" else "Gemini"}")
 }
 
 // Theme Management Functions
@@ -2831,6 +2971,9 @@ fun SettingsTabContent(context: Context) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // AI Model Selection (GPT-5 vs Gemini) - NEW: Added at the top
+        AIModelSelectionCard(context)
+        
         // AI Response Settings (moved from main screen)
         AIResponseSettingsCard(context)
         
