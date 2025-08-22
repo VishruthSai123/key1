@@ -15,14 +15,14 @@ object KeyBackgroundStyles {
     val DARK = KeyBackgroundStyle(
         id = "dark",
         name = "Dark",
-        description = "Dark gray keys (default)",
+        description = "Dark gray keys",
         drawableResource = "modern_key_button"
     )
     
     val LIGHT_WHITE = KeyBackgroundStyle(
         id = "light_white",
         name = "Light White",
-        description = "Clean white background with subtle shadows",
+        description = "Clean white background with subtle shadows (default)",
         drawableResource = "modern_key_button_light_white"
     )
     
@@ -34,13 +34,13 @@ object KeyBackgroundStyles {
     )
     
     fun getAllStyles(): List<KeyBackgroundStyle> = listOf(
-        DARK,
         LIGHT_WHITE,
+        DARK,
         LIGHT_TRANSPARENT
     )
     
     fun getStyleById(id: String): KeyBackgroundStyle {
-        return getAllStyles().find { it.id == id } ?: DARK
+        return getAllStyles().find { it.id == id } ?: LIGHT_WHITE
     }
     
     /**

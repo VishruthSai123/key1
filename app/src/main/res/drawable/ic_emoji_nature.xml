@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    
+    <!-- Nature/leaf icon -->
+    <path
+        android:fillColor="@color/keywise_text_primary"
+        android:pathData="M17,8C8,10 5.9,16.17 3.82,21.34l1.89,0.66C7.84,17.7 9.6,12.47 16,11.24c1.6,-0.31 3.15,-0.71 4.63,-1.19C19.78,9.66 18.42,9.08 17,8z"/>
+    <path
+        android:fillColor="@color/keywise_text_primary"
+        android:pathData="M3.5,9.5c0,-1.93 1.57,-3.5 3.5,-3.5s3.5,1.57 3.5,3.5S8.93,13 7,13 3.5,11.43 3.5,9.5zM16.5,11c0,1.11 0.89,2 2,2s2,-0.89 2,-2 -0.89,-2 -2,-2 -2,0.89 -2,2z"/>
+    
+</vector>

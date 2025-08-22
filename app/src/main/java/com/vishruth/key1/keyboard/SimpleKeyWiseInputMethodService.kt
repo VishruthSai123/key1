@@ -52,7 +52,6 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
     private var isShiftLocked = false
     private var isAISectionVisible = true // AI section visibility state
     private var isAIProcessing = false // AI processing state
-    private var currentEmojiCategory = EmojiCategory.SMILEYS // Current emoji category
     private var isSelectionBarVisible = false // Selection operations bar visibility
     
     // Undo/Redo state management
@@ -65,15 +64,17 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
     private var longPressRunnable: Runnable? = null
     private var isLongPressing = false
     private val LONG_PRESS_DELAY = 500L
-    private val REPEAT_DELAY = 100L
+    private val REPEAT_DELAY = 50L // Faster repeat for quick clearing
     
     // Keyboard layouts
     private lateinit var lettersLayout: LinearLayout
     private lateinit var numbersLayout: LinearLayout 
     private lateinit var symbolsLayout: LinearLayout
-    private lateinit var emojisLayout: LinearLayout
     private lateinit var aiActionsContainer: LinearLayout
     // private lateinit var selectionOperationsBar: LinearLayout // UI element doesn't exist
+
+    // OpenMoji system
+    private var openMojiManager: com.vishruth.key1.emoji.OpenMojiManager? = null
 
     // Auto-suggestions state
     private var isAutoSuggestionsVisible = false
@@ -106,10 +107,6 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
 
     enum class KeyboardMode {
         LETTERS, NUMBERS, SYMBOLS, EMOJIS
-    }
-
-    enum class EmojiCategory {
-        SMILEYS, PEOPLE, NATURE, OBJECTS, SYMBOLS
     }
 
     override fun onCreate() {
@@ -246,7 +243,6 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
         lettersLayout = keyboardView!!.findViewById(R.id.letters_layout)
         numbersLayout = keyboardView!!.findViewById(R.id.numbers_layout)
         symbolsLayout = keyboardView!!.findViewById(R.id.symbols_layout)
-        emojisLayout = keyboardView!!.findViewById(R.id.emojis_layout)
         aiActionsContainer = keyboardView!!.findViewById(R.id.ai_actions_container)
                 Log.d("SimpleKeyWise", "Layout references initialized")
             } catch (e: Exception) {
@@ -291,10 +287,10 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
             }
             
             try {
-                setupEmojiButtons(keyboardView!!)
-                Log.d("SimpleKeyWise", "Emoji buttons setup complete")
+                initializeOpenMoji(keyboardView!!)
+                Log.d("SimpleKeyWise", "OpenMoji system initialized")
             } catch (e: Exception) {
-                Log.e("SimpleKeyWise", "Error setting up emoji buttons: ${e.message}")
+                Log.e("SimpleKeyWise", "Error initializing OpenMoji: ${e.message}")
             }
             
             try {
@@ -742,6 +738,7 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
         setupBackspaceButton(view, R.id.key_backspace_num)
         setupBackspaceButton(view, R.id.key_backspace_sym)
         setupBackspaceButton(view, R.id.key_backspace_emoji)
+        setupBackspaceButton(view, R.id.key_backspace_emoji_new)  // Add new emoji backspace button
     }
     
     private fun setupBackspaceButton(view: View, keyId: Int) {
@@ -761,7 +758,7 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
                                     isLongPressing = true
                                 }
                                     if (hasTextToDelete()) {
-                                performBackspace()
+                                performBackspaceFast() // Use fast version for continuous deletion
                                 longPressHandler.postDelayed(this, REPEAT_DELAY)
                                     } else {
                                         isLongPressing = false
@@ -814,6 +811,14 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
         updateAutoSuggestions()
     }
     
+    private fun performBackspaceFast() {
+        // Fast backspace without haptic feedback for better performance
+        val inputConnection = currentInputConnection
+        inputConnection?.deleteSurroundingText(1, 0)
+        
+        // Skip auto-suggestions update during fast clearing for performance
+    }
+    
     private fun toggleShift() {
         if (!isShiftLocked) {
             isShiftEnabled = !isShiftEnabled
@@ -853,7 +858,44 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
         lettersLayout.visibility = if (mode == KeyboardMode.LETTERS) View.VISIBLE else View.GONE
         numbersLayout.visibility = if (mode == KeyboardMode.NUMBERS) View.VISIBLE else View.GONE
         symbolsLayout.visibility = if (mode == KeyboardMode.SYMBOLS) View.VISIBLE else View.GONE
-        emojisLayout.visibility = if (mode == KeyboardMode.EMOJIS) View.VISIBLE else View.GONE
+        
+        // Handle AI components visibility based on mode while preserving toggle state
+        val aiToggleContainer = keyboardView?.findViewById<LinearLayout>(R.id.top_buttons_container)
+        val aiActionsContainer = keyboardView?.findViewById<LinearLayout>(R.id.ai_actions_container)
+        
+        if (mode == KeyboardMode.EMOJIS) {
+            // Completely hide AI components in emoji mode
+            aiToggleContainer?.visibility = View.GONE
+            aiActionsContainer?.visibility = View.GONE
+            openMojiManager?.show()
+        } else {
+            // Show AI toggle container in other modes
+            aiToggleContainer?.visibility = View.VISIBLE
+            
+            // Ensure AI actions container maintains fixed position and preserves state
+            aiActionsContainer?.let { container ->
+                // Cancel any ongoing animations to prevent position shifts
+                container.animate().cancel()
+                
+                // Apply current state immediately without animation to prevent movement
+                if (isAISectionVisible) {
+                    container.visibility = View.VISIBLE
+                    container.alpha = 1f
+                    container.translationY = 0f  // Ensure fixed position
+                } else {
+                    container.visibility = View.GONE
+                    container.alpha = 0f
+                    container.translationY = 0f  // Ensure fixed position
+                }
+            }
+            
+            // Update toggle button state to match current state
+            val toggleButton = keyboardView?.findViewById<ImageButton>(R.id.btn_ai_toggle)
+            val statusText = keyboardView?.findViewById<TextView>(R.id.txt_ai_status)
+            updateAIToggleState(toggleButton, statusText)
+            
+            openMojiManager?.hide()
+        }
         
         Log.d("SimpleKeyWise", "Switched to mode: $mode")
     }
@@ -868,162 +910,30 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
         Log.d("SimpleKeyWise", "Input text: $text")
     }
 
-    private fun setupEmojiButtons(view: View) {
-        // Emoji category buttons
-        view.findViewById<Button>(R.id.emoji_cat_smileys)?.setOnClickListener {
-            switchEmojiCategory(EmojiCategory.SMILEYS)
+    /**
+     * Initialize OpenMoji system for advanced emoji functionality
+     */
+    private fun initializeOpenMoji(view: View) {
+        try {
+            openMojiManager = com.vishruth.key1.emoji.OpenMojiManager(
+                context = this,
+                keyboardView = view,
+                onEmojiSelected = { emoji ->
+                    performKeyClickFeedback()
+                    inputText(emoji)
+                },
+                onBackPressed = {
+                    // Switch back to letters mode when back is pressed
+                    switchToMode(KeyboardMode.LETTERS)
+                }
+            )
+            
+            openMojiManager?.initialize()
+            Log.d("SimpleKeyWise", "OpenMoji manager initialized successfully")
+            
+        } catch (e: Exception) {
+            Log.e("SimpleKeyWise", "Failed to initialize OpenMoji manager: ${e.message}")
         }
-        view.findViewById<Button>(R.id.emoji_cat_people)?.setOnClickListener {
-            switchEmojiCategory(EmojiCategory.PEOPLE)
-        }
-        view.findViewById<Button>(R.id.emoji_cat_nature)?.setOnClickListener {
-            switchEmojiCategory(EmojiCategory.NATURE)
-        }
-        view.findViewById<Button>(R.id.emoji_cat_objects)?.setOnClickListener {
-            switchEmojiCategory(EmojiCategory.OBJECTS)
-        }
-        view.findViewById<Button>(R.id.emoji_cat_symbols)?.setOnClickListener {
-            switchEmojiCategory(EmojiCategory.SYMBOLS)
-        }
-        
-        // All emoji keys - Smileys category
-        setupEmojiKey(view, R.id.emoji_grinning, "😀")
-        setupEmojiKey(view, R.id.emoji_beaming, "😁")
-        setupEmojiKey(view, R.id.emoji_sweat_smile, "😅")
-        setupEmojiKey(view, R.id.emoji_squinting, "😆")
-        setupEmojiKey(view, R.id.emoji_disappointed, "😥")
-        setupEmojiKey(view, R.id.emoji_kissing, "😘")
-        setupEmojiKey(view, R.id.emoji_blush, "☺️")
-        setupEmojiKey(view, R.id.emoji_relaxed, "😌")
-        setupEmojiKey(view, R.id.emoji_thinking, "🤔")
-        setupEmojiKey(view, R.id.emoji_cool, "😎")
-        setupEmojiKey(view, R.id.emoji_laughing, "🤣")
-        setupEmojiKey(view, R.id.emoji_party, "🥳")
-        setupEmojiKey(view, R.id.emoji_smirk, "😏")
-        setupEmojiKey(view, R.id.emoji_neutral, "😐")
-        setupEmojiKey(view, R.id.emoji_unamused, "😒")
-        setupEmojiKey(view, R.id.emoji_tired, "😴")
-        setupEmojiKey(view, R.id.emoji_cry, "😢")
-        setupEmojiKey(view, R.id.emoji_angry, "😡")
-        setupEmojiKey(view, R.id.emoji_scared, "😱")
-        setupEmojiKey(view, R.id.emoji_surprised, "😲")
-        setupEmojiKey(view, R.id.emoji_dizzy, "😵")
-        setupEmojiKey(view, R.id.emoji_sick, "🤒")
-        setupEmojiKey(view, R.id.emoji_mask, "😷")
-        setupEmojiKey(view, R.id.emoji_crazy, "🤪")
-        setupEmojiKey(view, R.id.emoji_devil, "😈")
-        setupEmojiKey(view, R.id.emoji_angel, "😇")
-        setupEmojiKey(view, R.id.emoji_skull, "💀")
-        setupEmojiKey(view, R.id.emoji_robot, "🤖")
-        setupEmojiKey(view, R.id.emoji_alien, "👽")
-        setupEmojiKey(view, R.id.emoji_ghost, "👻")
-        setupEmojiKey(view, R.id.emoji_poop, "💩")
-        setupEmojiKey(view, R.id.emoji_money_face, "🤑")
-        
-        // People category emojis
-        setupEmojiKey(view, R.id.emoji_wave, "👋")
-        setupEmojiKey(view, R.id.emoji_raised_hand, "✋")
-        setupEmojiKey(view, R.id.emoji_peace, "✌️")
-        setupEmojiKey(view, R.id.emoji_point_up, "☝️")
-        setupEmojiKey(view, R.id.emoji_point_right, "👉")
-        setupEmojiKey(view, R.id.emoji_point_left, "👈")
-        setupEmojiKey(view, R.id.emoji_point_down, "👇")
-        setupEmojiKey(view, R.id.emoji_fist, "✊")
-        setupEmojiKey(view, R.id.emoji_eyes, "👀")
-        setupEmojiKey(view, R.id.emoji_nose, "👃")
-        setupEmojiKey(view, R.id.emoji_ear, "👂")
-        setupEmojiKey(view, R.id.emoji_tongue, "👅")
-        setupEmojiKey(view, R.id.emoji_lips, "👄")
-        setupEmojiKey(view, R.id.emoji_baby, "👶")
-        setupEmojiKey(view, R.id.emoji_child, "🧒")
-        setupEmojiKey(view, R.id.emoji_person, "🧑")
-        setupEmojiKey(view, R.id.emoji_pray, "🙏")
-        setupEmojiKey(view, R.id.emoji_handshake, "🤝")
-        setupEmojiKey(view, R.id.emoji_nail_polish, "💅")
-        setupEmojiKey(view, R.id.emoji_selfie, "🤳")
-        setupEmojiKey(view, R.id.emoji_flexed_bicep, "💪")
-        setupEmojiKey(view, R.id.emoji_leg, "🦵")
-        setupEmojiKey(view, R.id.emoji_foot, "🦶")
-        setupEmojiKey(view, R.id.emoji_brain, "🧠")
-        
-        // Nature category emojis  
-        setupEmojiKey(view, R.id.emoji_sun, "☀️")
-        setupEmojiKey(view, R.id.emoji_moon, "🌙")
-        setupEmojiKey(view, R.id.emoji_cloud, "☁️")
-        setupEmojiKey(view, R.id.emoji_rain, "🌧️")
-        setupEmojiKey(view, R.id.emoji_snow, "❄️")
-        setupEmojiKey(view, R.id.emoji_lightning, "⚡")
-        setupEmojiKey(view, R.id.emoji_rainbow, "🌈")
-        setupEmojiKey(view, R.id.emoji_earth, "🌍")
-        setupEmojiKey(view, R.id.emoji_tree, "🌳")
-        setupEmojiKey(view, R.id.emoji_palm_tree, "🌴")
-        setupEmojiKey(view, R.id.emoji_cactus, "🌵")
-        setupEmojiKey(view, R.id.emoji_flower, "🌸")
-        setupEmojiKey(view, R.id.emoji_rose, "🌹")
-        setupEmojiKey(view, R.id.emoji_sunflower, "🌻")
-        setupEmojiKey(view, R.id.emoji_tulip, "🌷")
-        setupEmojiKey(view, R.id.emoji_leaf, "🍃")
-        setupEmojiKey(view, R.id.emoji_dog, "🐶")
-        setupEmojiKey(view, R.id.emoji_cat, "🐱")
-        setupEmojiKey(view, R.id.emoji_rabbit, "🐰")
-        setupEmojiKey(view, R.id.emoji_bear, "🐻")
-        
-        // Nature category emojis - Additional missing ones
-        setupEmojiKey(view, R.id.emoji_panda, "🐼")
-        setupEmojiKey(view, R.id.emoji_fox, "🦊")
-        setupEmojiKey(view, R.id.emoji_lion, "🦁")
-        setupEmojiKey(view, R.id.emoji_unicorn, "🦄")
-        
-        // Objects category emojis
-        setupEmojiKey(view, R.id.emoji_fire, "🔥")
-        setupEmojiKey(view, R.id.emoji_rocket, "🚀")
-        setupEmojiKey(view, R.id.emoji_star, "⭐")
-        setupEmojiKey(view, R.id.emoji_heart, "❤️")
-        setupEmojiKey(view, R.id.emoji_thumbs_up, "👍")
-        setupEmojiKey(view, R.id.emoji_clap, "👏")
-        setupEmojiKey(view, R.id.emoji_muscle, "💪")
-        setupEmojiKey(view, R.id.emoji_ok_hand, "👌")
-        
-        // Objects category emojis - Additional missing ones
-        setupEmojiKey(view, R.id.emoji_phone, "📱")
-        setupEmojiKey(view, R.id.emoji_computer, "💻")
-        setupEmojiKey(view, R.id.emoji_camera, "📷")
-        setupEmojiKey(view, R.id.emoji_video_camera, "📹")
-        setupEmojiKey(view, R.id.emoji_headphones, "🎧")
-        setupEmojiKey(view, R.id.emoji_microphone, "🎤")
-        setupEmojiKey(view, R.id.emoji_speaker, "🔊")
-        setupEmojiKey(view, R.id.emoji_tv, "📺")
-        setupEmojiKey(view, R.id.emoji_car, "🚗")
-        setupEmojiKey(view, R.id.emoji_taxi, "🚕")
-        setupEmojiKey(view, R.id.emoji_bus, "🚌")
-        setupEmojiKey(view, R.id.emoji_train, "🚂")
-        setupEmojiKey(view, R.id.emoji_airplane, "✈️")
-        setupEmojiKey(view, R.id.emoji_ship, "🚢")
-        setupEmojiKey(view, R.id.emoji_bicycle, "🚴")
-        setupEmojiKey(view, R.id.emoji_motorcycle, "🏍️")
-        setupEmojiKey(view, R.id.emoji_pizza, "🍕")
-        setupEmojiKey(view, R.id.emoji_burger, "🍔")
-        setupEmojiKey(view, R.id.emoji_coffee, "☕")
-        setupEmojiKey(view, R.id.emoji_beer, "🍺")
-        setupEmojiKey(view, R.id.emoji_cake, "🎂")
-        setupEmojiKey(view, R.id.emoji_ice_cream, "🍦")
-        setupEmojiKey(view, R.id.emoji_donut, "🍩")
-        setupEmojiKey(view, R.id.emoji_fruit, "🍎")
-        
-        // Symbols category emojis - Heart colors
-        setupEmojiKey(view, R.id.emoji_red_heart, "❤️")
-        setupEmojiKey(view, R.id.emoji_orange_heart, "🧡")
-        setupEmojiKey(view, R.id.emoji_yellow_heart, "💛")
-        setupEmojiKey(view, R.id.emoji_green_heart, "💚")
-        setupEmojiKey(view, R.id.emoji_blue_heart, "💙")
-        setupEmojiKey(view, R.id.emoji_purple_heart, "💜")
-        setupEmojiKey(view, R.id.emoji_black_heart, "🖤")
-        setupEmojiKey(view, R.id.emoji_broken_heart, "💔")
-        
-        // Emoji special keys
-        setupSpaceKey(view, R.id.key_space_emoji)
-        setupEnterKey(view, R.id.key_enter_emoji)
-        setupBackspaceButton(view, R.id.key_backspace_emoji)
     }
     
     private fun setupEmojiKey(view: View, keyId: Int, emoji: String) {
@@ -1056,52 +966,6 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
         }
     }
     */
-    
-    private fun switchEmojiCategory(category: EmojiCategory) {
-        currentEmojiCategory = category
-        
-        // Hide all category contents
-        keyboardView?.findViewById<LinearLayout>(R.id.emoji_smileys_content)?.visibility = View.GONE
-        keyboardView?.findViewById<LinearLayout>(R.id.emoji_people_content)?.visibility = View.GONE
-        keyboardView?.findViewById<LinearLayout>(R.id.emoji_nature_content)?.visibility = View.GONE
-        keyboardView?.findViewById<LinearLayout>(R.id.emoji_objects_content)?.visibility = View.GONE
-        keyboardView?.findViewById<LinearLayout>(R.id.emoji_symbols_content)?.visibility = View.GONE
-        
-        // Show selected category content
-        val contentId = when (category) {
-            EmojiCategory.SMILEYS -> R.id.emoji_smileys_content
-            EmojiCategory.PEOPLE -> R.id.emoji_people_content
-            EmojiCategory.NATURE -> R.id.emoji_nature_content
-            EmojiCategory.OBJECTS -> R.id.emoji_objects_content
-            EmojiCategory.SYMBOLS -> R.id.emoji_symbols_content
-        }
-        
-        keyboardView?.findViewById<LinearLayout>(contentId)?.visibility = View.VISIBLE
-        
-        // Update category button backgrounds
-        updateEmojiCategoryButtons()
-        
-        Log.d("SimpleKeyWise", "Switched to emoji category: $category")
-    }
-    
-    private fun updateEmojiCategoryButtons() {
-        keyboardView?.let { view ->
-            val buttons = listOf(
-                view.findViewById<Button>(R.id.emoji_cat_smileys) to EmojiCategory.SMILEYS,
-                view.findViewById<Button>(R.id.emoji_cat_people) to EmojiCategory.PEOPLE,
-                view.findViewById<Button>(R.id.emoji_cat_nature) to EmojiCategory.NATURE,
-                view.findViewById<Button>(R.id.emoji_cat_objects) to EmojiCategory.OBJECTS,
-                view.findViewById<Button>(R.id.emoji_cat_symbols) to EmojiCategory.SYMBOLS
-            )
-            
-            buttons.forEach { (button, category) ->
-                button?.setBackgroundResource(
-                    if (category == currentEmojiCategory) R.drawable.modern_ai_button 
-                    else R.drawable.modern_key_button
-                )
-            }
-        }
-    }
     
     private fun setupUndoRedo(view: View) {
         view.findViewById<ImageButton>(R.id.btn_undo)?.setOnClickListener {
@@ -1506,6 +1370,7 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
         keyboardScope.cancel()
         longPressHandler.removeCallbacksAndMessages(null)
         suggestionsHideHandler.removeCallbacksAndMessages(null) // Clean up suggestions timer
+        openMojiManager?.cleanup() // Clean up OpenMoji resources
         super.onDestroy()
     }
 
@@ -1517,7 +1382,7 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
     }
     
     private fun loadCurrentKeyBackgroundStyle() {
-        val styleId = sharedPreferences.getString("key_background_style", "dark") ?: "dark"
+        val styleId = sharedPreferences.getString("key_background_style", "light_white") ?: "light_white"
         currentKeyBackgroundStyle = KeyBackgroundStyles.getStyleById(styleId)
         Log.d("SimpleKeyWise", "Loaded key background style: ${currentKeyBackgroundStyle.name}")
     }

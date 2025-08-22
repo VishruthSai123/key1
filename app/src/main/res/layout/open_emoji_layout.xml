@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- OpenMoji Emoji Layout - Redesigned with transparent backgrounds to sync with themes -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/open_emojis_layout"
+    android:layout_width="match_parent"
+    android:layout_height="288dp"
+    android:orientation="vertical"
+    android:visibility="gone"
+    android:background="@android:color/transparent">
+
+    <!-- Header with Back Button and Title -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:orientation="horizontal"
+        android:background="@android:color/transparent"
+        android:paddingStart="8dp"
+        android:paddingEnd="16dp"
+        android:gravity="center_vertical">
+
+        <!-- Back Button -->
+        <Button
+            android:id="@+id/emoji_back_button"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@android:color/transparent"
+            android:drawableStart="@drawable/ic_back_arrow"
+            android:drawableTint="@color/keywise_text_primary"
+            android:textColor="@color/keywise_text_primary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="8dp"
+            android:elevation="0dp"
+            android:padding="4dp" />
+
+        <!-- Title Text -->
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Emojies"
+            android:textColor="@color/keywise_text_primary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Search Icon (Optional for future enhancement) -->
+        <Button
+            android:id="@+id/emoji_search_button"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@android:color/transparent"
+            android:text="🔍"
+            android:textSize="14sp"
+            android:elevation="0dp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+    <!-- Main Emoji Grid Area -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="168dp"
+        android:padding="4dp"
+        android:background="@android:color/transparent">
+
+        <!-- Loading Indicator -->
+        <ProgressBar
+            android:id="@+id/emoji_loading_indicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:visibility="gone" />
+
+        <!-- Error Message -->
+        <TextView
+            android:id="@+id/emoji_error_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="Failed to load emojis"
+            android:textColor="@color/keywise_text_secondary"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <!-- Emoji Grid (Scrollable) -->
+        <ScrollView
+            android:id="@+id/emoji_scroll_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="vertical"
+            android:background="@android:color/transparent">
+
+            <GridLayout
+                android:id="@+id/emoji_grid_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="7"
+                android:padding="8dp"
+                android:layout_gravity="center_horizontal"
+                android:useDefaultMargins="false"
+                android:alignmentMode="alignBounds"
+                android:columnOrderPreserved="false"
+                android:background="@android:color/transparent">
+
+                <!-- Emojis will be dynamically added here -->
+
+            </GridLayout>
+
+        </ScrollView>
+
+    </RelativeLayout>
+
+    <!-- Bottom Category Selector (Horizontal Scroll) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:background="@android:color/transparent"
+        android:paddingVertical="4dp">
+
+        <HorizontalScrollView
+            android:id="@+id/category_horizontal_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scrollbars="none"
+            android:fillViewport="false">
+
+            <LinearLayout
+                android:id="@+id/category_buttons_container"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:gravity="center_vertical"
+                android:background="@android:color/transparent">
+
+                <!-- Category buttons will be dynamically added here -->
+                
+                <!-- Sample category button for reference -->
+                <!--
+                <Button
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:background="@drawable/modern_key_button"
+                    android:text="😊"
+                    android:textSize="20sp"
+                    android:layout_marginEnd="4dp"
+                    android:elevation="1dp" />
+                -->
+
+            </LinearLayout>
+
+        </HorizontalScrollView>
+
+    </LinearLayout>
+
+    <!-- Keyboard Controls Row (Space, Enter, Backspace) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:orientation="horizontal"
+        android:background="@android:color/transparent"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp">
+
+        <!-- Space Key -->
+        <Button
+            android:id="@+id/key_space_emoji_new"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="3"
+            android:layout_marginEnd="2dp"
+            android:text="Space"
+            android:textColor="@color/keywise_text_primary"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif-medium"
+            android:background="@drawable/modern_special_button"
+            android:elevation="1dp" />
+
+        <!-- Enter Key -->
+        <Button
+            android:id="@+id/key_enter_emoji_new"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:text="↵"
+            android:textColor="@color/keywise_text_primary"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif-medium"
+            android:background="@drawable/modern_special_button"
+            android:elevation="1dp" />
+
+        <!-- Backspace Key -->
+        <Button
+            android:id="@+id/key_backspace_emoji_new"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="⌫"
+            android:textColor="@color/keywise_text_primary"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif-medium"
+            android:background="@drawable/modern_special_button"
+            android:elevation="1dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

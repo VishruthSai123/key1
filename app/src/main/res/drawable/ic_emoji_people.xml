@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    
+    <!-- People icon -->
+    <path
+        android:fillColor="@color/keywise_text_primary"
+        android:pathData="M16,4c0,-1.11 0.89,-2 2,-2s2,0.89 2,2 -0.89,2 -2,2 -2,-0.89 -2,-2zM20,22v-6h2.5l-2.54,-7.63c-0.34,-1.02 -1.31,-1.37 -2.46,-1.37h-3c-1.15,0 -2.12,0.35 -2.46,1.37L9.5,16H12v6h8zM12.5,11.5c0.83,0 1.5,-0.67 1.5,-1.5s-0.67,-1.5 -1.5,-1.5S11,9.17 11,10s0.67,1.5 1.5,1.5zM6,6c1.1,0 2,-0.9 2,-2S7.1,2 6,2 4,2.9 4,4s0.9,2 2,2zM8,22v-6h2.5L8.46,8.63C8.12,7.61 7.15,7.26 6,7.26H3c-1.15,0 -2.12,0.35 -2.46,1.37L-2,16H0.5v6H8z"/>
+    
+</vector>

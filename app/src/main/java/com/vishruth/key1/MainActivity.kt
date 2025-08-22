@@ -1995,7 +1995,7 @@ fun setSelectedTheme(context: Context, themeId: String) {
 // Key Background Style Management Functions
 fun getSelectedKeyBackgroundStyle(context: Context): String {
     val prefs = context.getSharedPreferences("sendright_settings", Context.MODE_PRIVATE)
-    return prefs.getString("key_background_style", "dark") ?: "dark"
+    return prefs.getString("key_background_style", "light_white") ?: "light_white"
 }
 
 fun setSelectedKeyBackgroundStyle(context: Context, styleId: String) {

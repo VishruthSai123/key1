@@ -1,0 +1,417 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/keyboard_root_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="4dp"
+    android:background="@drawable/modern_keyboard_background"
+    android:elevation="12dp">
+
+    <!-- Dynamic Toggle Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="6dp"
+        android:paddingVertical="4dp">
+
+        <!-- Main buttons container (to be hidden when suggestions show) -->
+        <LinearLayout
+            android:id="@+id/top_buttons_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/modern_keyboard_background"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="6dp"
+            android:elevation="2dp">
+
+            <!-- Left side: AI Toggle Button -->
+            <ImageButton
+                android:id="@+id/btn_ai_toggle"
+                android:layout_width="42dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_ai_robot"
+                android:background="@drawable/modern_ai_button"
+                android:elevation="3dp"
+                android:layout_marginEnd="12dp"
+                android:contentDescription="Toggle AI Actions"
+                android:scaleType="centerInside" />
+
+            <!-- Center: Function Buttons -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:paddingHorizontal="4dp">
+
+                <ImageButton
+                    android:id="@+id/btn_gif"
+                    android:layout_width="38dp"
+                    android:layout_height="36dp"
+                    android:src="@drawable/ic_gif"
+                    android:background="@drawable/modern_special_button"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="GIF"
+                    android:scaleType="centerInside" />
+
+                <ImageButton
+                    android:id="@+id/btn_translate"
+                    android:layout_width="38dp"
+                    android:layout_height="36dp"
+                    android:src="@drawable/ic_translate"
+                    android:background="@drawable/modern_special_button"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="Translate"
+                    android:scaleType="centerInside" />
+
+                <ImageButton
+                    android:id="@+id/btn_clipboard"
+                    android:layout_width="38dp"
+                    android:layout_height="36dp"
+                    android:src="@drawable/ic_clipboard"
+                    android:background="@drawable/modern_special_button"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="Clipboard"
+                    android:scaleType="centerInside" />
+
+                <ImageButton
+                    android:id="@+id/btn_voice"
+                    android:layout_width="38dp"
+                    android:layout_height="36dp"
+                    android:src="@drawable/ic_voice"
+                    android:background="@drawable/modern_special_button"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="Voice Typing"
+                    android:scaleType="centerInside" />
+
+            </LinearLayout>
+
+            <!-- Right side: Menu Button -->
+            <ImageButton
+                android:id="@+id/btn_menu"
+                android:layout_width="42dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_menu"
+                android:background="@drawable/modern_special_button"
+                android:elevation="2dp"
+                android:contentDescription="Menu"
+                android:scaleType="centerInside" />
+
+        </LinearLayout>
+
+        <!-- Auto-completion suggestion buttons (overlaid, full width) -->
+        <LinearLayout
+            android:id="@+id/auto_complete_suggestions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:visibility="gone"
+            android:paddingHorizontal="8dp"
+            android:background="@drawable/modern_keyboard_background"
+            android:elevation="2dp"
+            android:paddingVertical="6dp">
+
+            <TextView
+                android:id="@+id/suggestion_1"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="suggestion"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:background="@android:color/transparent"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="8dp"
+                android:gravity="center"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:elevation="0dp" />
+
+            <TextView
+                android:id="@+id/suggestion_2"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="suggestion"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:background="@android:color/transparent"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="8dp"
+                android:gravity="center"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:elevation="0dp" />
+
+            <TextView
+                android:id="@+id/suggestion_3"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="suggestion"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:background="@android:color/transparent"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="8dp"
+                android:gravity="center"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:elevation="0dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- AI Action Bar (Fixed position, hidden by default, shown when AI toggle is pressed) -->
+    <LinearLayout
+        android:id="@+id/ai_actions_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="0dp"
+        android:layout_marginBottom="0dp"
+        android:background="@drawable/modern_keyboard_background"
+        android:padding="6dp"
+        android:orientation="vertical"
+        android:elevation="2dp"
+        android:visibility="gone"
+        android:translationZ="2dp">
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingHorizontal="2dp">
+
+                <Button
+                    android:id="@+id/btn_rewrite"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="✨ Rewrite"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_summarize"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="📚 Summarize"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_explain"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="🧠 Explain"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_listify"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="🗒️ Listify"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_emojify"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="💬 Emoji-fy"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_make_formal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="📢 Formal"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_tweetify"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="🐦 Tweetify"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_promptify"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="⚡ Prompt-fy"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_translate_ai"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="🌍 Translate"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_creative"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="🎨 Creative"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_answer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="💬 Chat"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+                <Button
+                    android:id="@+id/btn_letter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="📝 Letter"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:background="@drawable/modern_ai_button"
+                    android:paddingHorizontal="12dp"
+                    android:minWidth="0dp" />
+
+            </LinearLayout>
+
+        </HorizontalScrollView>
+
+    </LinearLayout>
+
+    <!-- Keyboard Area Placeholder (To be developed step by step) -->
+    <LinearLayout
+        android:id="@+id/keyboard_area_placeholder"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/modern_keyboard_background"
+        android:layout_marginTop="8dp"
+        android:elevation="1dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🚧 Keyboard Area"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="To be developed step by step"
+            android:textColor="#CCCCCC"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp"
+            android:fontFamily="sans-serif" />
+
+    </LinearLayout>
+
+</LinearLayout>

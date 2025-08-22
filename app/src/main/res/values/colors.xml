@@ -21,4 +21,9 @@
     <color name="keywise_accent">#FF66BB6A</color>
     <color name="keywise_gradient_start">#FF4CAF50</color>
     <color name="keywise_gradient_end">#FF81C784</color>
+    
+    <!-- Emoji Layout Colors -->
+    <color name="keywise_keyboard_background">#FFFFFFFF</color>
+    <color name="keywise_header_background">#FFF5F5F5</color>
+    <color name="keywise_category_background">#FFFAFAFA</color>
 </resources>
