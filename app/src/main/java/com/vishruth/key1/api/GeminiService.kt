@@ -4,6 +4,7 @@ import android.util.Log
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
 import com.google.ai.client.generativeai.type.generationConfig
+import com.vishruth.key1.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -23,14 +24,15 @@ import kotlinx.coroutines.withTimeout
 class GeminiService {
     
     companion object {
-        // Primary API key - use this first
-        private const val PRIMARY_API_KEY = "AIzaSyDbR8JfKPsFH6Tp6ZI4alewAmRqCibRccI"
+        // Primary API key - use this first (secured in BuildConfig)
+        private val PRIMARY_API_KEY = BuildConfig.GEMINI_PRIMARY_API_KEY.takeIf { it.isNotEmpty() } 
+            ?: throw IllegalStateException("GEMINI_PRIMARY_API_KEY not configured in local.properties")
         
-        // Backup API keys - only use if primary fails
+        // Backup API keys - only use if primary fails (secured in BuildConfig)
         private val BACKUP_API_KEYS = listOf(
-            "AIzaSyCWEsSM3UsoA2X88MEQNeZHChLGYoe_F58",
-            "AIzaSyCYYYfs87oh3n9LYD9cqSX2HSzvW0qYtmo"
-        )
+            BuildConfig.GEMINI_BACKUP_API_KEY_1,
+            BuildConfig.GEMINI_BACKUP_API_KEY_2
+        ).filter { it.isNotEmpty() }
         
         private const val MODEL_NAME = "gemini-2.0-flash-exp"
         private const val TAG = "GeminiService"

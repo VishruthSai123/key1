@@ -972,6 +972,11 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
             performUndo()
         }
         
+        // Report button handler
+        view.findViewById<ImageButton>(R.id.btn_report)?.setOnClickListener {
+            openReportScreen()
+        }
+        
         // view.findViewById<ImageButton>(R.id.btn_redo)?.setOnClickListener {
         //     performRedo()
         // }
@@ -1962,6 +1967,22 @@ class SimpleKeyWiseInputMethodService : InputMethodService() {
         } catch (e: Exception) {
             Log.e("SimpleKeyWise", "Error opening chat tab: ${e.message}")
             showToast("Error opening chat")
+        }
+    }
+    
+    private fun openReportScreen() {
+        try {
+            val intent = Intent(this, com.vishruth.key1.ui.report.ReportActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            
+            // Provide feedback to user
+            showToast("Opening Report Screen...")
+            Log.d("SimpleKeyWise", "Report screen opened successfully")
+            
+        } catch (e: Exception) {
+            Log.e("SimpleKeyWise", "Error opening report screen: ${e.message}")
+            showToast("Error opening report screen")
         }
     }
 }

@@ -1,8 +1,22 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     kotlin("plugin.serialization") version "2.0.0"
+}
+
+// Load API keys from local.properties
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+}
+
+// Function to safely get property with fallback
+fun getLocalProperty(key: String, fallback: String = ""): String {
+    return localProperties.getProperty(key) ?: fallback
 }
 
 android {
@@ -13,10 +27,16 @@ android {
         applicationId = "com.vishruth.key1"
         minSdk = 24
         targetSdk = 35
-        versionCode = 10
-        versionName = "2.0"
+        versionCode = 11
+        versionName = "2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Add API keys to BuildConfig (secured)
+        buildConfigField("String", "GEMINI_PRIMARY_API_KEY", "\"${getLocalProperty("GEMINI_PRIMARY_API_KEY", "")}\"")
+        buildConfigField("String", "GEMINI_BACKUP_API_KEY_1", "\"${getLocalProperty("GEMINI_BACKUP_API_KEY_1", "")}\"")
+        buildConfigField("String", "GEMINI_BACKUP_API_KEY_2", "\"${getLocalProperty("GEMINI_BACKUP_API_KEY_2", "")}\"")
+        buildConfigField("String", "GPT5_API_KEY", "\"${getLocalProperty("GPT5_API_KEY", "")}\"")
     }
 
     buildTypes {
@@ -37,6 +57,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     lint {
         abortOnError = false

@@ -1,6 +1,7 @@
 package com.vishruth.key1.api
 
 import android.util.Log
+import com.vishruth.key1.BuildConfig
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -20,7 +21,8 @@ import java.nio.charset.StandardCharsets
 class GPT5Service {
     
     companion object {
-        private const val API_KEY = "d62241486f9f4fd48e76ba31452b30de"
+        private val API_KEY = BuildConfig.GPT5_API_KEY.takeIf { it.isNotEmpty() }
+            ?: throw IllegalStateException("GPT5_API_KEY not configured in local.properties")
         private const val BASE_URL = "https://api.aimlapi.com/v1"
         private const val MODEL_NAME = "openai/gpt-5-mini-2025-08-07"
         private const val TAG = "GPT5Service"

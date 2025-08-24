@@ -394,8 +394,21 @@ fun AppHeader() {
                     )
                 }
                 
-                // Right side - Empty space (menu removed)
-                Spacer(modifier = Modifier.width(48.dp))
+                // Right side - Report Button
+                IconButton(
+                    onClick = {
+                        val intent = Intent(context, com.vishruth.key1.ui.report.ReportActivity::class.java)
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_report_black),
+                        contentDescription = "Report Content",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }

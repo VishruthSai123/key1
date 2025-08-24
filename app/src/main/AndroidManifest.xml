@@ -47,6 +47,13 @@
             android:label="SendRight Setup Guide"
             android:theme="@style/Theme.Key1" />
 
+        <!-- Report Activity - AI Content Reporting for policy compliance -->
+        <activity
+            android:name=".ui.report.ReportActivity"
+            android:exported="false"
+            android:label="Report Content"
+            android:theme="@style/Theme.Key1" />
+
         <!-- KeyWise AI Input Method Service -->
         <service
             android:name=".keyboard.SimpleKeyWiseInputMethodService"

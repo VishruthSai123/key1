@@ -7,6 +7,7 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="light_purple">#FF8E7CC3</color>
     
     <!-- SendRight Modern Colors -->
     <color name="keywise_primary">#FF4CAF50</color>

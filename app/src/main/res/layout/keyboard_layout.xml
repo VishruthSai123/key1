@@ -78,7 +78,17 @@
                     android:src="@drawable/ic_undo"
                     android:background="@drawable/modern_special_button"
                     android:elevation="2dp"
+                    android:layout_marginEnd="4dp"
                     android:contentDescription="Undo" />
+
+                <ImageButton
+                    android:id="@+id/btn_report"
+                    android:layout_width="40dp"
+                    android:layout_height="36dp"
+                    android:src="@drawable/ic_report_white"
+                    android:background="@drawable/modern_special_button"
+                    android:elevation="2dp"
+                    android:contentDescription="Report Content" />
 
             </LinearLayout>
 
